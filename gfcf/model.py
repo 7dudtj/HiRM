@@ -257,39 +257,24 @@ class GF_CF(object):
         self.adj_mat = adj_mat
         
     def train(self):
-        adj_mat = self.adj_mat
+        adj_mat = self.adj_mat # (52643, 91599)
         start = time.time()
         print("training start")
-        print("adj_mat", adj_mat.shape)
-        rowsum = np.array(adj_mat.sum(axis=1))
-        print("rowsum", rowsum.shape)
-        d_inv = np.power(rowsum, -0.5).flatten() 
-        print("d_inv", d_inv.shape)
-        d_inv[np.isinf(d_inv)] = 0.
-        print("d_inv", d_inv.shape)
-        d_mat = sp.diags(d_inv) # D_{U}^{-1/2}
-        print("d_mat", d_mat.shape)
-        norm_adj = d_mat.dot(adj_mat) # D_{U}^{-1/2}.R
-        print("norm_adj", norm_adj.shape)
+        rowsum = np.array(adj_mat.sum(axis=1)) # (52643, 1)
+        d_inv = np.power(rowsum, -0.5).flatten() # (52643,)
+        d_inv[np.isinf(d_inv)] = 0. # (52643,)
+        d_mat = sp.diags(d_inv) # (52643, 52643) / D_{U}^{-1/2}
+        norm_adj = d_mat.dot(adj_mat) # (52643, 91599) / D_{U}^{-1/2}.R
 
-        colsum = np.array(adj_mat.sum(axis=0))
-        print("colsum", colsum.shape)
-        d_inv = np.power(colsum, -0.5).flatten()
-        print("d_inv", d_inv.shape)
-        d_inv[np.isinf(d_inv)] = 0.
-        print("d_inv", d_inv.shape)
-        d_mat = sp.diags(d_inv) # D_{I}^{-1/2}
-        print("d_mat", d_mat.shape)
+        colsum = np.array(adj_mat.sum(axis=0)) # (1, 91599)
+        d_inv = np.power(colsum, -0.5).flatten() # (91599,)
+        d_inv[np.isinf(d_inv)] = 0. # (91599,)
+        d_mat = sp.diags(d_inv) # (91599, 91599) / D_{I}^{-1/2}
         self.d_mat_i = d_mat
-        print("d_mat_i", self.d_mat_i.shape)
-        self.d_mat_i_inv = sp.diags(1/d_inv) # D_{I}^{1/2}
-        print("d_mat_i_inv", self.d_mat_i_inv.shape)
-        norm_adj = norm_adj.dot(d_mat) # D_{U}^{-1/2}.R.D_{I}^{-1/2} = R 물결(normalized rating matrix)
-        print("norm_adj", norm_adj.shape)
-        self.norm_adj = norm_adj.tocsc()
-        print("norm_adj", self.norm_adj.shape)
-        ut, s, self.vt = sparsesvd(self.norm_adj, 256) # svd(R 물결) -> V^{T} (Singular Vector, i * i)
-        print("vt", self.vt.shape)
+        self.d_mat_i_inv = sp.diags(1/d_inv) # (91599, 91599) / D_{I}^{1/2}
+        norm_adj = norm_adj.dot(d_mat) # (52643, 91599) / D_{U}^{-1/2}.R.D_{I}^{-1/2} = R Tilda (normalized rating matrix)
+        self.norm_adj = norm_adj.tocsc() # (52643, 91599)
+        ut, s, self.vt = sparsesvd(self.norm_adj, 256) # (256, 91599) / sparsesvd at R Tilda -> V^{T} (Singular Vector, i * i)
         end = time.time()
         print('training time for GF-CF', end-start)
         
@@ -298,11 +283,9 @@ class GF_CF(object):
         adj_mat = self.adj_mat
         batch_test = np.array(adj_mat[batch_users,:].todense())
         U_2 = batch_test @ norm_adj.T @ norm_adj
-        if(ds_name == 'amazon-book'): # a: 0
-            # ret = U_2
-            U_1 = batch_test @  self.d_mat_i @ self.vt.T @ self.vt @ self.d_mat_i_inv
-            ret = U_2 + 0.3 * U_1
-        else:
+        if(ds_name == 'amazon-book'): # amazon-book -> alpha: 0
+            ret = U_2
+        else: # gowalla, yelp2018 -> alpha: 0.3
             U_1 = batch_test @  self.d_mat_i @ self.vt.T @ self.vt @ self.d_mat_i_inv
             ret = U_2 + 0.3 * U_1
         return ret
