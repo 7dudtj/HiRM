@@ -112,8 +112,7 @@ def Test(dataset, Recmodel, epoch, w=None, multicore=0):
             if(world.simple_model != 'none'):
                 rating = lm.getUsersRating(batch_users, world.dataset)
                 rating = torch.from_numpy(rating)
-                # rating = rating.to('cuda')
-                rating = rating.to('cpu') # for test
+                rating = rating.to(world.device)
                 ## Copy data to GPU and back introduces latency, just to fit the functions in LightGCN
             else:
                 rating = Recmodel.getUsersRating(batch_users_gpu)
