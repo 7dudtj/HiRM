@@ -2,3 +2,4 @@ code/checkpoints/
 code/runs/
 __pycache__
 .cph
+gfcf/directory.py
