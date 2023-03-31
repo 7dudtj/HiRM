@@ -7,6 +7,8 @@ Xiangnan He et al. LightGCN: Simplifying and Powering Graph Convolution Network 
 '''
 import argparse
 
+from typing import Union
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Go lightGCN")
@@ -44,4 +46,11 @@ def parse_args():
     parser.add_argument('--seed', type=int, default=2020, help='random seed')
     parser.add_argument('--model', type=str, default='lgn', help='rec-model, support [mf, lgn]')
     parser.add_argument('--simple_model', type=str, default='none', help='simple-rec-model, support [none, lgn-ide, gf-cf]')
+
+    # add parser argument
+    parser.add_argument('--is_vanilla_gfcf', type=int, default=1, help='1 for vanilla, 0 for changing')
+    parser.add_argument('--alpha', type=float, default=0.3, help='0~1 float value')
+    parser.add_argument('--svdvalue', type=int, default="256", help='default value is 256')
+    parser.add_argument('--svdtype', type=str, default="sparsesvd", help='default=sparsesvd, scipy, sklearn, sparse_dot_topn, sparse, torch, fbpca, sklearn-rand')
+
     return parser.parse_args()

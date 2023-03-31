@@ -42,10 +42,17 @@ config['pretrain'] = args.pretrain
 config['A_split'] = False
 config['bigdata'] = False
 
+# config files for changing subtle things
+config['is_vanilla_gfcf'] = args.is_vanilla_gfcf
+config['alpha'] = args.alpha
+config['svdvalue'] = int(args.svdvalue)
+config['svdtype'] = args.svdtype
+
 GPU = torch.cuda.is_available()
 device = torch.device('cuda' if GPU else "cpu")
 CORES = multiprocessing.cpu_count() // 2
 seed = args.seed
+
 
 dataset = args.dataset
 simple_model = args.simple_model
