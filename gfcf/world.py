@@ -13,16 +13,11 @@ from enum import Enum
 from parse import parse_args
 import multiprocessing
 
+# for the environment
+from directory import *
+
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 args = parse_args()
-
-ROOT_PATH = "/Users/7dudt/Desktop/GF_CF"
-CODE_PATH = join(ROOT_PATH, 'code')
-DATA_PATH = join(ROOT_PATH, 'data')
-BOARD_PATH = join(CODE_PATH, 'runs')
-FILE_PATH = join(CODE_PATH, 'checkpoints')
-import sys
-sys.path.append(join(CODE_PATH, 'sources'))
 
 
 if not os.path.exists(FILE_PATH):
