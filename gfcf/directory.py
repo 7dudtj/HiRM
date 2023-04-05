@@ -1,6 +1,6 @@
 from os.path import join
 
-ROOT_PATH = "/Users/kgh1030/Documents/2023_1/GFCF/sojong"
+ROOT_PATH = __FILL_YOUT_PATH__
 CODE_PATH = join(ROOT_PATH, 'code')
 DATA_PATH = join(ROOT_PATH, 'data')
 BOARD_PATH = join(CODE_PATH, 'runs')
