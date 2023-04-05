@@ -82,8 +82,11 @@ def Test(dataset, Recmodel, epoch, w=None, multicore=0):
         lm = model.LGCN_IDE(adj_mat)
         lm.train()
     elif(world.simple_model == 'gf-cf'):
+        # now check if we use vanilla one
+        # if world.config['is_vanilla_gfcf'] == 1:
         lm = model.GF_CF(adj_mat)
         lm.train()
+
     # eval mode with no dropout
     Recmodel = Recmodel.eval()
     max_K = max(world.topks)

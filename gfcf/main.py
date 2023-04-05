@@ -41,7 +41,10 @@ try:
     if(world.simple_model != 'none'):
         epoch = 0
         cprint("[TEST]")
+        start_time = time.time()
         Procedure.Test(dataset, Recmodel, epoch, w, world.config['multicore'])
+        end_time = time.time()
+        print(f"total time consumption: {end_time-start_time}s")
     else:
         for epoch in range(world.TRAIN_epochs):
             if epoch %10 == 0:
