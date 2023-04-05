@@ -51,6 +51,6 @@ def parse_args():
     parser.add_argument('--is_vanilla_gfcf', type=int, default=1, help='1 for vanilla, 0 for changing')
     parser.add_argument('--alpha', type=float, default=0.3, help='0~1 float value')
     parser.add_argument('--svdvalue', type=int, default="256", help='default value is 256')
-    parser.add_argument('--svdtype', type=str, default="sparsesvd", help='default=sparsesvd, scipy, sklearn, sparse_dot_topn, sparse, torch, fbpca, sklearn-rand')
+    parser.add_argument('--svdtype', type=str, default="sparsesvd", help='default=sparsesvd, scipy, fbpca, sklearn-rand')
 
     return parser.parse_args()

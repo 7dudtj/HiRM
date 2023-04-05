@@ -16,6 +16,10 @@ import scipy.sparse as sp
 import numpy as np
 from sparsesvd import sparsesvd
 
+from sklearn.decomposition import TruncatedSVD
+import fbpca
+from sklearn.utils.extmath import randomized_svd
+
 
 class BasicModel(nn.Module):    
     def __init__(self):
@@ -279,9 +283,23 @@ class GF_CF(object):
         if world.config['is_vanilla_gfcf'] == 1:
             ut, s, self.vt = sparsesvd(self.norm_adj, 256) # (256, 91599) / sparsesvd at R Tilda -> V^{T} (Singular Vector, i * i)
         else:
+            world.cprint(f"Is not Vanilla GF-CF")
+            world.cprint(f"svd package: {world.config['svdtype']}")
+            world.cprint(f"svd value: {world.config['svdvalue']}")
+            
+            # need to do SVD - singular value is 
             if world.config['svdtype'] == 'sparsesvd':
                 ut, s, self.vt = sparsesvd(self.norm_adj, world.config['svdvalue']) # (256, 91599) / sparsesvd at R Tilda -> V^{T} (Singular Vector, i * i)
+            elif world.config['svdtype'] == 'scipy':
+                ut, s, self.vt = sp.linalg.svds(self.norm_adj, k=world.config['svdvalue'], which='LM')
+                a = s.argsort()[::-1]
+                self.vt = self.vt[a,:]
+            elif world.config['svdtype'] == 'fbpca':
+                ut, s, self.vt = fbpca.pca(self.norm_adj, k=world.config['svdvalue'], raw=True)
+            elif world.config['svdtype'] == 'sklearn-rand':
+                ut, s, self.vt = randomized_svd(self.norm_adj, n_components=world.config['svdvalue'])
             else:
+                print(f"we have no package named {world.config['svdtype']}")
                 raise NotImplementedError
             
 
