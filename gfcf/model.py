@@ -15,6 +15,7 @@ from torch import nn
 import scipy.sparse as sp
 import numpy as np
 from sparsesvd import sparsesvd
+import math
 
 from sklearn.decomposition import TruncatedSVD
 import fbpca
@@ -259,6 +260,25 @@ class LGCN_IDE(object):
 class GF_CF(object):
     def __init__(self, adj_mat):
         self.adj_mat = adj_mat
+    
+    def gaussian_filter(self, eigenvalue):
+        alpha = 0.2
+        return np.exp(-alpha * (eigenvalue ** 2))
+    
+    def heat_kernel_filter(self, eigenvalue):
+        alpha = 0.1
+        return np.exp(-alpha * eigenvalue)
+    
+    def butterworth_filter(self, eigenvalue, filter_order):
+        if (filter_order == 1):
+            return 1 / (eigenvalue + 1)
+        elif (filter_order == 2):
+            return 1 / (eigenvalue ** 2 + math.sqrt(2) * eigenvalue + 1)
+        elif (filter_order == 3):
+            return 1 / ((eigenvalue + 1) * (eigenvalue ** 2 + eigenvalue + 1))
+        else:
+            print("We only use filter order value in [1, 2, 3]")
+            raise NotImplementedError
         
     def train(self):
         adj_mat = self.adj_mat # (52643, 91599)
@@ -281,7 +301,7 @@ class GF_CF(object):
 
         # do svd - low rank factorization
         if world.config['is_vanilla_gfcf'] == 1:
-            ut, s, self.vt = sparsesvd(self.norm_adj, 256) # (256, 91599) / sparsesvd at R Tilda -> V^{T} (Singular Vector, i * i)
+            ut, self.s, self.vt = sparsesvd(self.norm_adj, 256) # (256, 91599) / sparsesvd at R Tilda -> V^{T} (Singular Vector, i * i)
         else:
             world.cprint(f"Is not Vanilla GF-CF")
             world.cprint(f"svd package: {world.config['svdtype']}")
@@ -289,15 +309,15 @@ class GF_CF(object):
             
             # need to do SVD - singular value is 
             if world.config['svdtype'] == 'sparsesvd':
-                ut, s, self.vt = sparsesvd(self.norm_adj, world.config['svdvalue']) # (256, 91599) / sparsesvd at R Tilda -> V^{T} (Singular Vector, i * i)
+                ut, self.s, self.vt = sparsesvd(self.norm_adj, world.config['svdvalue']) # (256, 91599) / sparsesvd at R Tilda -> V^{T} (Singular Vector, i * i)
             elif world.config['svdtype'] == 'scipy':
-                ut, s, self.vt = sp.linalg.svds(self.norm_adj, k=world.config['svdvalue'], which='LM')
-                a = s.argsort()[::-1]
+                ut, self.s, self.vt = sp.linalg.svds(self.norm_adj, k=world.config['svdvalue'], which='LM')
+                a = self.s.argsort()[::-1]
                 self.vt = self.vt[a,:]
             elif world.config['svdtype'] == 'fbpca':
-                ut, s, self.vt = fbpca.pca(self.norm_adj, k=world.config['svdvalue'], raw=True)
+                ut, self.s, self.vt = fbpca.pca(self.norm_adj, k=world.config['svdvalue'], raw=True)
             elif world.config['svdtype'] == 'sklearn-rand':
-                ut, s, self.vt = randomized_svd(self.norm_adj, n_components=world.config['svdvalue'])
+                ut, self.s, self.vt = randomized_svd(self.norm_adj, n_components=world.config['svdvalue'])
             else:
                 print(f"we have no package named {world.config['svdtype']}")
                 raise NotImplementedError
@@ -317,10 +337,14 @@ class GF_CF(object):
             if(ds_name == 'amazon-book'): # amazon-book -> alpha: 0
                 ret = U_2
             else: # gowalla, yelp2018 -> alpha: 0.3
-                U_1 = batch_test @  self.d_mat_i @ self.vt.T @ self.vt @ self.d_mat_i_inv
+                # U_1 = batch_test @  self.d_mat_i @ self.vt.T @ self.vt @ self.d_mat_i_inv
+                U_1 = batch_test @  self.d_mat_i @ self.vt.T @ \
+                    np.diag(self.gaussian_filter(self.s)) @ self.vt @ self.d_mat_i_inv # filter is inserted
                 ret = U_2 + 0.3 * U_1
         else:
-            U_1 = batch_test @ self.d_mat_i @ self.vt.T @ self.vt @ self.d_mat_i_inv
+            # U_1 = batch_test @ self.d_mat_i @ self.vt.T @ self.diag_s @ self.vt @ self.d_mat_i_inv
+            U_1 = batch_test @ self.d_mat_i @ self.vt.T @ \
+                np.diag(self.gaussian_filter(self.s)) @ self.vt @ self.d_mat_i_inv # filter is inserted
             ret = U_2 + world.config['alpha'] * U_1
             return ret
         return ret
