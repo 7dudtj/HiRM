@@ -352,9 +352,9 @@ class GF_CF_EXP1(object):
                     # self.linear_Filter_cuda_sparse = torch.mm(self.norm_adj_cuda.T, self.norm_adj_cuda)
                     # del self.norm_adj_cuda
                 else:
-                    self.norm_adj_cuda = self.convert_sp_mat_to_sp_tensor(self.norm_adj).to(world.config['expdevice'])
-                    self.linear_Filter_cuda = torch.mm(self.norm_adj_cuda.T, self.norm_adj_cuda).to_dense()
-                    del self.norm_adj_cuda
+                    self.norm_adj_cuda_sparse = self.convert_sp_mat_to_sp_tensor(self.norm_adj).to(world.config['expdevice'])
+                    self.linear_Filter_cuda = torch.mm(self.norm_adj_cuda_sparse.T, self.norm_adj_cuda_sparse).to_dense()
+                    del self.norm_adj_cuda_sparse
                     print("Created self.linear_Filter_cuda")
 
                 # left_mat: D_I^1/2 @ V : this V is U_bar from svd
