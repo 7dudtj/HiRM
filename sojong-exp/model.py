@@ -408,7 +408,7 @@ class GF_CF_EXP2(object):
         if world.config['filter'] == 'linear':
             return eigenvalue
         elif world.config['filter'] == 'ideal-low-pass':
-            return 
+            return np.ones(shape=eigenvalue.shape, dtype=float)
         elif world.config['filter'] == 'gaussian':
             alpha = 0.2
             return np.exp(-alpha * (eigenvalue ** 2))
@@ -511,7 +511,7 @@ class GF_CF_EXP2(object):
         end = time.time()
         print('training time for GF-CF', end-start)
         
-    def getUsersRating(self, alpha, batch_users=None, batch_ratings=None):
+    def getUsersRating(self, batch_users=None, batch_ratings=None):
         if world.config['expdevice'] == 'cpu':
             adj_mat = self.adj_mat #tolil
             batch_test = np.array(adj_mat[batch_users,:].todense())
@@ -528,7 +528,7 @@ class GF_CF_EXP2(object):
                     if world.dataset != 'amazon-book':
                         ret = batch_test @ self.linear_Filter_cuda
                     else:
-                        ret = batch_test @ self.norm_adj_cuda_sparse.T @ self.norm_adj_cuda_sparse
+                        ret = (batch_test @ self.norm_adj_cuda_sparse.T @ self.norm_adj_cuda_sparse).to_dense()
                 # other filters
                 else:
                     ret = batch_test @ self.left_mat_cuda @ torch.diag(self.s_filter_cuda) @ self.right_mat_cuda
