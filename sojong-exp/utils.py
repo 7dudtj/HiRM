@@ -286,7 +286,7 @@ def get_diversity(m_items, rating_list):
         for user in batch:
             for item in user:
                 item_list.append(item)
-
+                
     return len(set(item_list)) / m_items
 
 # ====================end Metrics=============================
