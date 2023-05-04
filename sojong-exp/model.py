@@ -299,6 +299,15 @@ class GF_CF_EXP1(object):
     def __init__(self, adj_mat):
         self.adj_mat = adj_mat
     def train(self):
+
+        world.cprint(f"Is not Vanilla GF-CF")
+        world.cprint(f"simple-model: {world.simple_model}")
+        world.cprint(f"dataset: {world.dataset}")
+        world.cprint(f"svd package: {world.config['svdtype']}")
+        world.cprint(f"svd dimension: {world.config['svdvalue']}")
+        world.cprint(f"exp1 device: {world.config['expdevice']}")
+        world.cprint(f"alpha_start, end, step: {world.config['alpha_start']}, {world.config['alpha_end']}, {world.config['alpha_step']}")
+
         adj_mat = self.adj_mat # (52643, 91599)
         start = time.time()
         print("training start")
@@ -318,10 +327,7 @@ class GF_CF_EXP1(object):
         self.norm_adj = norm_adj.tocsc() # (52643, 91599)
 
     # do svd - low rank factorization
-        world.cprint(f"Is not Vanilla GF-CF")
-        world.cprint(f"svd package: {world.config['svdtype']}")
-        world.cprint(f"svd value: {world.config['svdvalue']}")
-        
+
         # need to do SVD - singular value is 
         if world.config['svdtype'] == 'sparsesvd':
             ut, self.s, self.vt = sparsesvd(self.norm_adj, world.config['svdvalue']) # (256, 91599) / sparsesvd at R Tilda -> V^{T} (Singular Vector, i * i)
@@ -437,6 +443,16 @@ class GF_CF_EXP2(object):
 
      
     def train(self):
+
+        world.cprint(f"Is not Vanilla GF-CF")
+        world.cprint(f"simple-model: {world.simple_model}")
+        world.cprint(f"dataset: {world.dataset}")
+        world.cprint(f"svd package: {world.config['svdtype']}")
+        world.cprint(f"svd dimension: {world.config['svdvalue']}")
+        world.cprint(f"exp2 device: {world.config['expdevice']}")
+        world.cprint(f"filter: {world.config['filter']}")
+        world.cprint(f"filter_option: {world.config['filter_option']}")
+
         adj_mat = self.adj_mat # (52643, 91599)
         start = time.time()
         print("training start")
@@ -482,20 +498,21 @@ class GF_CF_EXP2(object):
         elif world.config['expdevice'][:4] == 'cuda':
             with torch.no_grad():
                 # # let's check if we don't use large linear filter, just multiply with diagonal matrices!
-                if world.dataset == 'amazon-book' and world.config['filter'] == 'linear':
-                    print('Amazon dataset is not Suitable for Commercial GPU - need 32GB of VRAM')
-                    print('Use Sparse Matrix Multiplication of CUDA')
-                    self.norm_adj_cuda_sparse = self.convert_sp_mat_to_sp_tensor(self.norm_adj).to(world.config['expdevice'])
-                    print('Created self.norm_adj_cuda_sparse')
-                    # if we have 16GB vram, then we can use this method - sparse linear Filter
-                    # self.norm_adj_cuda = self.convert_sp_mat_to_sp_tensor(self.norm_adj).to(world.config['expdevice'])
-                    # self.linear_Filter_cuda_sparse = torch.mm(self.norm_adj_cuda.T, self.norm_adj_cuda)
-                    # del self.norm_adj_cuda
-                elif world.config['filter'] == 'linear':
-                    self.norm_adj_cuda = self.convert_sp_mat_to_sp_tensor(self.norm_adj).to(world.config['expdevice'])
-                    self.linear_Filter_cuda = torch.mm(self.norm_adj_cuda.T, self.norm_adj_cuda).to_dense()
-                    del self.norm_adj_cuda
-                    print("Created self.linear_Filter_cuda")
+                if world.config['filter'] == 'linear':
+                    if world.dataset == 'amazon-book':
+                        print('Amazon dataset is not Suitable for Commercial GPU - need 48GB of VRAM')
+                        print('Use Sparse Matrix Multiplication of CUDA')
+                        self.norm_adj_cuda_sparse = self.convert_sp_mat_to_sp_tensor(self.norm_adj).to(world.config['expdevice'])
+                        print('Created self.norm_adj_cuda_sparse')
+                        # if we have 16GB vram, then we can use this method - sparse linear Filter
+                        # self.norm_adj_cuda = self.convert_sp_mat_to_sp_tensor(self.norm_adj).to(world.config['expdevice'])
+                        # self.linear_Filter_cuda_sparse = torch.mm(self.norm_adj_cuda.T, self.norm_adj_cuda)
+                        # del self.norm_adj_cuda
+                    else:
+                        self.norm_adj_cuda = self.convert_sp_mat_to_sp_tensor(self.norm_adj).to(world.config['expdevice'])
+                        self.linear_Filter_cuda = torch.mm(self.norm_adj_cuda.T, self.norm_adj_cuda).to_dense()
+                        del self.norm_adj_cuda
+                        print("Created self.linear_Filter_cuda")
                 # left_mat: D_I^1/2 @ V : this V is U_bar from svd
                 left_mat = self.d_mat_i @ self.vt.T
                 # right_mat: V.T @ D_I^{-1/2}
