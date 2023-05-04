@@ -42,11 +42,17 @@ config['pretrain'] = args.pretrain
 config['A_split'] = False
 config['bigdata'] = False
 
-# config files for changing subtle things
-config['is_vanilla_gfcf'] = args.is_vanilla_gfcf
-config['alpha'] = args.alpha
+# config files for exp 1, 2
+config['expdevice'] = args.expdevice
 config['svdvalue'] = int(args.svdvalue)
 config['svdtype'] = args.svdtype
+# for exp1
+config['alpha_start'] = args.alpha_start
+config['alpha_end'] = args.alpha_end
+config['alpha_step'] = args.alpha_step
+# for exp2
+config['filter'] = args.filter
+config['filter_option'] = args.filter_option
 
 GPU = torch.cuda.is_available()
 device = torch.device('cuda' if GPU else "cpu")
@@ -81,13 +87,13 @@ def cprint(words : str):
     print(f"\033[0;30;43m{words}\033[0m")
 
 logo = r"""
-██╗      ██████╗ ███╗   ██╗
-██║     ██╔════╝ ████╗  ██║
-██║     ██║  ███╗██╔██╗ ██║
-██║     ██║   ██║██║╚██╗██║
-███████╗╚██████╔╝██║ ╚████║
-╚══════╝ ╚═════╝ ╚═╝  ╚═══╝
+████████╗███████╗ █████╗ ███╗   ███╗    ██╗      ██████╗████████╗███╗   ███╗
+╚══██╔══╝██╔════╝██╔══██╗████╗ ████║    ██║     ██╔════╝╚══██╔══╝████╗ ████║
+   ██║   █████╗  ███████║██╔████╔██║    ██║     ██║  ███╗  ██║   ██╔████╔██║
+   ██║   ██╔══╝  ██╔══██║██║╚██╔╝██║    ██║     ██║   ██║  ██║   ██║╚██╔╝██║
+   ██║   ███████╗██║  ██║██║ ╚═╝ ██║    ███████╗╚██████╔╝  ██║   ██║ ╚═╝ ██║
+   ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝    ╚══════╝ ╚═════╝   ╚═╝   ╚═╝     ╚═╝                                                              
 """
 # font: ANSI Shadow
 # refer to http://patorjk.com/software/taag/#p=display&f=ANSI%20Shadow&t=Sampling
-# print(logo)
+print(logo)

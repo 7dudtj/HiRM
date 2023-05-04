@@ -1,5 +1,4 @@
-code/checkpoints/
-code/runs/
+code
 __pycache__
 .cph
-gfcf/directory.py
+.python-version

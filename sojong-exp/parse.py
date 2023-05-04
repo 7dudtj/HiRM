@@ -45,12 +45,19 @@ def parse_args():
     parser.add_argument('--pretrain', type=int, default=0, help='whether we use pretrained weight or not')
     parser.add_argument('--seed', type=int, default=2020, help='random seed')
     parser.add_argument('--model', type=str, default='lgn', help='rec-model, support [mf, lgn]')
-    parser.add_argument('--simple_model', type=str, default='none', help='simple-rec-model, support [none, lgn-ide, gf-cf]')
-
     # add parser argument
-    parser.add_argument('--is_vanilla_gfcf', type=int, default=1, help='1 for vanilla, 0 for changing')
-    parser.add_argument('--alpha', type=float, default=0.3, help='0~1 float value')
+    
+    # for exp 1, 2
+    parser.add_argument('--simple_model', type=str, default='none', help='simple-rec-model, support [none, lgn-ide, gf-cf, exp1, exp2]')
     parser.add_argument('--svdvalue', type=int, default="256", help='default value is 256')
     parser.add_argument('--svdtype', type=str, default="sparsesvd", help='default=sparsesvd, scipy, fbpca, sklearn-rand')
+    parser.add_argument('--expdevice', type=str, default='cpu', help='cuda:0, cuda:1,... for cuda, else cpu')
+    # for exp 1
+    parser.add_argument('--alpha_start', type=float, default=0.3, help='0~1 float value')
+    parser.add_argument('--alpha_end', type=float, default=0.3, help='0~1 float value')
+    parser.add_argument('--alpha_step', type=float, default=0.05, help='step of alpha values')
+    # for exp2
+    parser.add_argument('--filter', type=str, default='linear', help='linear, ideal-low-pass, gaussian, heat-kernel, butterworth, gfcf-linear-autoencoder, gfcf-Neighborhood-based')
+    parser.add_argument('--filter_option', type=str, default=0, help='butterworth filter(1,2,3), gfcf-linear-autoencoder(mu_value), ')
 
     return parser.parse_args()
