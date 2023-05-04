@@ -105,7 +105,8 @@ def Test(dataset, Recmodel, epoch, w=None, multicore=0):
     
     results = {'precision': np.zeros(len(world.topks)),
                'recall': np.zeros(len(world.topks)),
-               'ndcg': np.zeros(len(world.topks))}
+               'ndcg': np.zeros(len(world.topks)),
+               'diversity': 0}
     with torch.no_grad():
         users = list(testDict.keys())
         try:
@@ -165,6 +166,7 @@ def Test(dataset, Recmodel, epoch, w=None, multicore=0):
         results['recall'] /= float(len(users))
         results['precision'] /= float(len(users))
         results['ndcg'] /= float(len(users))
+        results['diversity'] = utils.get_diversity(dataset.m_items, rating_list)
         # results['auc'] = np.mean(auc_record)
         if world.tensorboard:
             w.add_scalars(f'Test/Recall@{world.topks}',
@@ -211,7 +213,8 @@ def Test_exp1(dataset, epoch, w=None, multicore=0):
         start_time = time()
         results = {'precision': np.zeros(len(world.topks)),
                 'recall': np.zeros(len(world.topks)),
-                'ndcg': np.zeros(len(world.topks))}
+                'ndcg': np.zeros(len(world.topks)),
+                'diversity': 0}
         with torch.no_grad():
             users = list(testDict.keys())
             try:
@@ -271,6 +274,7 @@ def Test_exp1(dataset, epoch, w=None, multicore=0):
             results['recall'] /= float(len(users))
             results['precision'] /= float(len(users))
             results['ndcg'] /= float(len(users))
+            results['diversity'] = utils.get_diversity(dataset.m_items, rating_list)
             # results['auc'] = np.mean(auc_record)
             if world.tensorboard:
                 w.add_scalars(f'Test/Recall@{world.topks}',
@@ -313,7 +317,8 @@ def Test_exp2(dataset, epoch, w=None, multicore=0):
     start_time = time()
     results = {'precision': np.zeros(len(world.topks)),
             'recall': np.zeros(len(world.topks)),
-            'ndcg': np.zeros(len(world.topks))}
+            'ndcg': np.zeros(len(world.topks)),
+            'diversity': 0}
     with torch.no_grad():
         users = list(testDict.keys())
         try:
@@ -373,6 +378,7 @@ def Test_exp2(dataset, epoch, w=None, multicore=0):
         results['recall'] /= float(len(users))
         results['precision'] /= float(len(users))
         results['ndcg'] /= float(len(users))
+        results['diversity'] = utils.get_diversity(dataset.m_items, rating_list)
         # results['auc'] = np.mean(auc_record)
         if world.tensorboard:
             w.add_scalars(f'Test/Recall@{world.topks}',

@@ -277,5 +277,17 @@ def getLabel(test_data, pred_data):
         r.append(pred)
     return np.array(r).astype('float')
 
+def get_diversity(m_items, rating_list):
+    
+    item_list = []
+            
+    for batch in rating_list:
+        batch = batch.numpy()
+        for user in batch:
+            for item in user:
+                item_list.append(item)
+        
+    return len(set(item_list)) / m_items
+
 # ====================end Metrics=============================
 # =========================================================
