@@ -8,11 +8,11 @@
 
 DEVICE="cuda:0"
 
-# svdvalue_list=(64 128 256 512 1024)
-svdvalue_list=(256)
+svdvalue_list=(64 128 256 512 1024)
+# svdvalue_list=(256)
 
 # svdmodule_list=("sparsesvd" "scipy" "fbpca" "sklearn-rand")
-svdmodule_list=("sparsesvd")
+svdmodule_list=("fbpca")
 dataset_list=("gowalla" "yelp2018" "amazon-book")
 # dataset_list=("gowalla")
 

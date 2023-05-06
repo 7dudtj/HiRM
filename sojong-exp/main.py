@@ -15,10 +15,16 @@ import register
 from register import dataset
 
 if __name__ == '__main__':
-    Recmodel = register.MODELS[world.model_name](world.config, dataset)
+    # for reproduce
+    torch.manual_seed(0)
+    
     if world.simple_model[:3] != 'exp':
+        Recmodel = register.MODELS[world.model_name](world.config, dataset)
         Recmodel = Recmodel.to(world.device)
         bpr = utils.BPRLoss(Recmodel, world.config)
+    else:
+        # if we are doing exp1, exp2 - disable grad
+        torch.set_grad_enabled(False)
 
     weight_file = utils.getFileName()
     print(f"load and save to {weight_file}")
