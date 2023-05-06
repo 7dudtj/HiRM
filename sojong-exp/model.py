@@ -507,6 +507,12 @@ class GF_CF_EXP2(object):
             self.norm_adj_sparse_tensor = self.convert_sp_mat_to_sp_tensor(self.norm_adj)
             ut, self.s, self.vt = torch.svd_lowrank(self.norm_adj_sparse_tensor, q=world.config['svdvalue'], niter=2)
             self.s, self.vt = self.s.numpy(), self.vt.numpy().T
+        elif world.config['svdtype'] == 'torch_cuda':
+            self.norm_adj_sparse_tensor = self.convert_sp_mat_to_sp_tensor(self.norm_adj)
+            self.norm_adj_cuda_sparse = self.norm_adj_sparse_tensor.to(world.config['expdevice'])
+            ut, self.s, self.vt = torch.svd_lowrank(self.norm_adj_cuda_sparse, q=world.config['svdvalue'])
+            self.s, self.vt = self.s.cpu().numpy(), self.vt.T.cpu().numpy()
+            del self.norm_adj_cuda_sparse
         else:
             print(f"we have no package named {world.config['svdtype']}")
             raise NotImplementedError
