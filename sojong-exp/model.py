@@ -7,15 +7,25 @@ Xiangnan He et al. LightGCN: Simplifying and Powering Graph Convolution Network 
 
 Define models here
 """
+import pkg_resources
+from typing import Any
 import world
 import torch
 import time
 from dataloader import BasicDataset
 from torch import nn
 import scipy.sparse as sp
+try:
+    import scipy.sparse.linalg
+    import cupyx.scipy.sparse.linalg as cusplg
+    import cupyx.scipy.sparse as cusp
+except ImportError:
+    has_cupyx = False
+    pass
 import numpy as np
 from sparsesvd import sparsesvd
 import math
+from filter import *
 
 from sklearn.decomposition import TruncatedSVD
 import fbpca
@@ -294,68 +304,6 @@ class GF_CF(object):
             ret = U_2 + 0.3 * U_1
         return ret
 
-class Filter(object):
-    def __init__(self, option) -> None:
-        pass
-class LinearFilter(Filter):
-    def __init__(self, option) -> None:
-        super(LinearFilter, self).__init__(option)
-    def __call__(self, s: np.array) -> np.array:
-        return s
-class IdealLowPassFilter(Filter):
-    def __init__(self, option) -> None:
-        super(IdealLowPassFilter, self).__init__(option)
-    def __call__(self, s: np.array) -> np.array:
-        return np.ones(shape=s.shape, dtype=float)
-class GaussianFilter(Filter):
-    def __init__(self, alpha=0.2) -> None:
-        super(GaussianFilter, self).__init__(alpha)
-        if alpha < 0:
-            self.alpha = 0.2
-        else:
-            self.alpha = alpha
-    def __call__(self, s: np.array) -> np.array:
-        return np.exp(-self.alpha * (s**2))
-class HeatKernelFilter(Filter):
-    def __init__(self, alpha=0.1) -> None:
-        super(HeatKernelFilter, self).__init__(alpha)
-        if alpha < 0:
-            self.alpha = 0.1
-        else:
-            self.alpha = alpha
-    def __call__(self, s: np.array) -> np.array:
-        return np.exp(-self.alpha * s)
-class ButterWorthFilter(Filter):
-    def __init__(self, order=1) -> None:
-        super(ButterWorthFilter, self).__init__(order)
-        self.order = order
-        self.order_list = [1,2,3]
-        if self.order == 1:
-            self.butterworth = lambda s: 1 / (s + 1)
-        elif self.order == 2:
-            self.butterworth = lambda s: 1 / (s**2 + math.sqrt(2)*s + 1)
-        elif self.order == 3:
-            self.butterworth = lambda s: 1 / ((s+1) * (s**2 + s + 1))
-        else:
-            print("We only use filter order value in [1, 2, 3]")
-            raise NotImplementedError
-    def __call__(self, s: np.array) -> np.array:
-        return self.butterworth(s)
-class GFCFLinearAutoencoderFilter(Filter):
-    def __init__(self, mu=0.1) -> None:
-        super(GFCFLinearAutoencoderFilter, self).__init__(mu)
-        if mu < 0:
-            self.mu = 0.1
-        else:
-            self.mu = mu
-    def __call__(self, s: np.array) -> np.array:
-        return (1 - s) / (1 - s + self.mu)
-class GFCFNeighborhoodBasedFilter(Filter):
-    def __init__(self, option) -> None:
-        super(GFCFNeighborhoodBasedFilter, self).__init__(option)
-    def __call__(self, s: np.array) -> np.array:
-        return (1 - s)
-
 class EXPS(object):
     def __init__(self, adj_mat) -> None:
         self.adj_mat = adj_mat
@@ -405,9 +353,18 @@ class EXPS(object):
             ut, self.s, self.vt = sparsesvd(self.norm_adj, world.config['svdvalue']) # (256, 91599) / sparsesvd at R Tilda -> V^{T} (Singular Vector, i * i)
         elif world.config['svdtype'] == 'scipy':
             ut, self.s, self.vt = sp.linalg.svds(self.norm_adj, k=world.config['svdvalue'], which='LM')
-            a = self.s.argsort()[::-1]
-            self.s = self.s.sort()[::-1]
-            self.vt = self.vt[a,:]
+            self.s = self.s[::-1]
+            self.vt = self.vt[::-1]
+        elif world.config['svdtype'] == 'cupy':
+            # change class scipy.sparse._csc.csc_matrix to cupyx
+            try:
+                norm_adj_cupyx_sparse_matrix = cusp.csc_matrix(self.norm_adj)
+                ut, self.s, self.vt = cusplg.svds(norm_adj_cupyx_sparse_matrix, k=world.config['svdvalue'], which='LM')
+                self.s = self.s.get()[::-1]
+                self.vt = self.vt.get()[::-1]
+            except ImportError:
+                print("Don't have module cupy! Change SVD module!")
+                exit(0)
         elif world.config['svdtype'] == 'fbpca':
             ut, self.s, self.vt = fbpca.pca(self.norm_adj, k=world.config['svdvalue'], raw=True)
         elif world.config['svdtype'] == 'sklearn-rand':
@@ -430,7 +387,7 @@ class EXPS(object):
 
         if world.config['expdevice'][:4] == 'cuda':
             # # let's check if we don't use large linear filter, just multiply with diagonal matrices!
-            if world.config['filter'] == 'linear':
+            if world.config['filter'] == 'linear' or type(self) is not EXP2:
                 if world.dataset == 'amazon-book':
                     print('Amazon dataset is not Suitable for Commercial GPU - need 48GB of VRAM')
                     print('Use Sparse Matrix Multiplication of CUDA')
@@ -489,27 +446,31 @@ class EXP1(EXPS):
             ret = alpha * U_1 + U_2
             return ret
         
+def returnFilter():
+    if world.config['filter'] == 'linear':
+        return LinearFilter(world.config['filter_option'])
+    elif world.config['filter'] == 'ideal-low-pass':
+        return IdealLowPassFilter(world.config['filter_option'])
+    elif world.config['filter'] == 'gaussian':
+        return GaussianFilter(float(world.config['filter_option']))
+    elif world.config['filter'] == 'heat-kernel':
+        return HeatKernelFilter(float(world.config['filter_option']))
+    elif world.config['filter'] == 'butterworth':
+        return ButterWorthFilter(int(world.config['filter_option']))
+    # from gf-cf
+    elif world.config['filter'] == 'gfcf-linear-autoencoder':
+        return GFCFLinearAutoencoderFilter(float(world.config['filter_option']))
+    elif world.config['filter'] == 'gfcf-Neighborhood-based':
+        return GFCFNeighborhoodBasedFilter(world.config['filter_option'])
+    elif world.config['filter'] == 'inverse':
+        return GFCFNeighborhoodBasedFilter(world.config['filter_option'])
+    else:
+        raise NotImplementedError
 
 class EXP2(EXPS):
     def __init__(self, adj_mat):
         super(EXP2, self).__init__(adj_mat)
-        if world.config['filter'] == 'linear':
-            self.filter = LinearFilter(world.config['filter_option'])
-        elif world.config['filter'] == 'ideal-low-pass':
-            self.filter = IdealLowPassFilter(world.config['filter_option'])
-        elif world.config['filter'] == 'gaussian':
-            self.filter = GaussianFilter(float(world.config['filter_option']))
-        elif world.config['filter'] == 'heat-kernel':
-            self.filter = HeatKernelFilter(float(world.config['filter_option']))
-        elif world.config['filter'] == 'butterworth':
-            self.filter = ButterWorthFilter(int(world.config['filter_option']))
-        # from gf-cf
-        elif world.config['filter'] == 'gfcf-linear-autoencoder':
-            self.filter = GFCFLinearAutoencoderFilter(float(world.config['filter_option']))
-        elif world.config['filter'] == 'gfcf-Neighborhood-based':
-            self.filter = GFCFNeighborhoodBasedFilter(world.config['filter_option'])
-        else:
-            raise NotImplementedError
+        self.filter = returnFilter()
      
     def train(self):
         start = time.time()
@@ -546,3 +507,39 @@ class EXP2(EXPS):
             else:
                 ret = batch_test @ self.left_mat_cuda @ torch.diag(self.s_filter_cuda) @ self.right_mat_cuda
             return ret
+
+class EXP3(EXPS):
+    def __init__(self, adj_mat) -> None:
+        super(EXP3, self).__init__(adj_mat)
+        self.filter = returnFilter()
+    def train(self):
+        start = time.time()
+        super(EXP3, self).train()
+        # filter array
+        if world.config['expdevice'] == 'cpu':
+            # self.s_filter = self.do_filter(self.s)
+            self.s_filter = self.filter(self.s)
+        else:
+            # self.s_filter_cuda = torch.FloatTensor(self.do_filter(self.s)).to(world.config['expdevice'])
+            self.s_filter_cuda = torch.FloatTensor(self.filter(self.s)).to(world.config['expdevice'])
+        print("Make CUDA END!")
+        end = time.time()
+        print('training time for GF-CF', end-start)
+        world.cprint(f"The filter is {world.config['filter']}!")
+        
+    def getUsersRating(self, alpha, batch_users=None, batch_ratings=None):
+        if world.config['expdevice'] == 'cpu':
+            adj_mat = self.adj_mat #tolil
+            batch_test = np.array(adj_mat[batch_users,:].todense())
+            U_2 = batch_test @ self.norm_adj.T @ self.norm_adj
+            U_1 = batch_test @ self.d_mat_i @ self.vt.T @ np.diag(self.s_filter) @ self.vt @ self.d_mat_i_inv
+            return U_2 + alpha * U_1
+        else:
+            batch_test = batch_ratings.to_sparse()
+            if world.dataset != 'amazon-book':
+                U_2 = batch_test @ self.linear_Filter_cuda
+            else:
+                U_2 = batch_test @ self.norm_adj_cuda_sparse.T @ self.norm_adj_cuda_sparse
+                # U_2 = batch_test @ self.linear_Filter_cuda_sparse
+            U_1 = batch_test @ self.left_mat_cuda @ torch.diag(self.s_filter_cuda) @ self.right_mat_cuda
+            return U_2 + alpha * U_1
