@@ -20,9 +20,7 @@ import multiprocessing
 from sklearn.metrics import roc_auc_score
 import math
 
-
 CORES = multiprocessing.cpu_count() // 2
-
 
 def BPR_train_original(dataset, recommend_model, loss_class, epoch, neg_k=1, w=None):
     Recmodel = recommend_model
@@ -189,7 +187,7 @@ def Test_exp1(dataset, epoch, w=None, multicore=0):
     if world.simple_model != 'exp1':
         raise NotImplementedError
     
-    lm = model.GF_CF_EXP1(adj_mat)
+    lm = model.EXP1(adj_mat)
     lm.train()
 
     # eval mode with no dropout
@@ -215,111 +213,7 @@ def Test_exp1(dataset, epoch, w=None, multicore=0):
                 'recall': np.zeros(len(world.topks)),
                 'ndcg': np.zeros(len(world.topks)),
                 'diversity': 0}
-        with torch.no_grad():
-            users = list(testDict.keys())
-            try:
-                assert u_batch_size <= len(users) / 10
-            except AssertionError:
-                print(f"test_u_batch_size is too big for this dataset, try a small one {len(users) // 10}")
-            users_list = []
-            rating_list = []
-            groundTrue_list = []
-            # auc_record = []
-            # ratings = []
-            total_batch = len(users) // u_batch_size + 1
-
-            for batch_users in utils.minibatch(users, batch_size=u_batch_size):
-                allPos = dataset.getUserPosItems(batch_users)
-                groundTrue = [testDict[u] for u in batch_users]
-                if world.config['expdevice'][:4] != 'cpu':
-                    batch_ratings = adj_mat[batch_users, :].to(world.config['expdevice'])
-                    rating = lm.getUsersRating(alpha, batch_ratings=batch_ratings, batch_users=batch_users)
-                else:
-                    rating = lm.getUsersRating(alpha, batch_users=batch_users)
-                    rating = torch.from_numpy(rating)
-                # rating = rating.to(world.device)
-
-                #rating = rating.cpu()
-                exclude_index = []
-                exclude_items = []
-                for range_i, items in enumerate(allPos):
-                    exclude_index.extend([range_i] * len(items))
-                    exclude_items.extend(items)
-                rating[exclude_index, exclude_items] = -(1<<10)
-                _, rating_K = torch.topk(rating, k=max_K)
-                rating = rating.cpu().numpy()
-                # aucs = [ 
-                #         utils.AUC(rating[i],
-                #                   dataset, 
-                #                   test_data) for i, test_data in enumerate(groundTrue)
-                #     ]
-                # auc_record.extend(aucs)
-                del rating
-                users_list.append(batch_users)
-                rating_list.append(rating_K.cpu())
-                groundTrue_list.append(groundTrue)
-            assert total_batch == len(users_list)
-            X = zip(rating_list, groundTrue_list)
-            if multicore == 1:
-                pre_results = pool.map(test_one_batch, X)
-            else:
-                pre_results = []
-                for x in X:
-                    pre_results.append(test_one_batch(x))
-            scale = float(u_batch_size/len(users))
-            for result in pre_results:
-                results['recall'] += result['recall']
-                results['precision'] += result['precision']
-                results['ndcg'] += result['ndcg']
-            results['recall'] /= float(len(users))
-            results['precision'] /= float(len(users))
-            results['ndcg'] /= float(len(users))
-            results['diversity'] = utils.get_diversity(dataset.m_items, rating_list)
-            # results['auc'] = np.mean(auc_record)
-            if world.tensorboard:
-                w.add_scalars(f'Test/Recall@{world.topks}',
-                            {str(world.topks[i]): results['recall'][i] for i in range(len(world.topks))}, epoch)
-                w.add_scalars(f'Test/Precision@{world.topks}',
-                            {str(world.topks[i]): results['precision'][i] for i in range(len(world.topks))}, epoch)
-                w.add_scalars(f'Test/NDCG@{world.topks}',
-                            {str(world.topks[i]): results['ndcg'][i] for i in range(len(world.topks))}, epoch)
-            if multicore == 1:
-                pool.close()
-                pool.join()
-            world.cprint(f"alpha: {alpha}")
-            print(results)
-            end_time = time()
-            print(f"time consumption: {end_time-start_time}s")
-
-def Test_exp2(dataset, epoch, w=None, multicore=0):
-    u_batch_size = world.config['test_u_batch_size']
-    dataset: utils.BasicDataset
-    testDict: dict = dataset.testDict
-    adj_mat = dataset.UserItemNet.tolil()
-    if world.simple_model != 'exp2':
-        raise NotImplementedError
-    
-    lm = model.GF_CF_EXP2(adj_mat)
-    lm.train()
-
-    # eval mode with no dropout
-    max_K = max(world.topks)
-    # Current Problem: Only use Multiprocessing at concating all results, not procedure part
-    # So need to change this part
-    if multicore == 1:
-        pool = multiprocessing.Pool(CORES)
-    #     c_proc = multiprocessing.current_process()
-    # print(f"Core: {CORES} current process: {c_proc.name} and PID:{c_proc.pid}")
-
-    if world.config['expdevice'][:4] != 'cpu':
-        adj_mat = convert_sp_mat_to_sp_tensor(adj_mat).to_dense()
-
-    start_time = time()
-    results = {'precision': np.zeros(len(world.topks)),
-            'recall': np.zeros(len(world.topks)),
-            'ndcg': np.zeros(len(world.topks)),
-            'diversity': 0}
-    with torch.no_grad():
+        
         users = list(testDict.keys())
         try:
             assert u_batch_size <= len(users) / 10
@@ -337,9 +231,9 @@ def Test_exp2(dataset, epoch, w=None, multicore=0):
             groundTrue = [testDict[u] for u in batch_users]
             if world.config['expdevice'][:4] != 'cpu':
                 batch_ratings = adj_mat[batch_users, :].to(world.config['expdevice'])
-                rating = lm.getUsersRating(batch_ratings=batch_ratings, batch_users=batch_users)
+                rating = lm.getUsersRating(alpha, batch_ratings=batch_ratings, batch_users=batch_users)
             else:
-                rating = lm.getUsersRating(batch_users=batch_users)
+                rating = lm.getUsersRating(alpha, batch_users=batch_users)
                 rating = torch.from_numpy(rating)
             # rating = rating.to(world.device)
 
@@ -362,6 +256,7 @@ def Test_exp2(dataset, epoch, w=None, multicore=0):
             users_list.append(batch_users)
             rating_list.append(rating_K.cpu())
             groundTrue_list.append(groundTrue)
+        print(f"total batch: {total_batch}, len of users_list: {len(users_list)}")
         assert total_batch == len(users_list)
         X = zip(rating_list, groundTrue_list)
         if multicore == 1:
@@ -390,9 +285,113 @@ def Test_exp2(dataset, epoch, w=None, multicore=0):
         if multicore == 1:
             pool.close()
             pool.join()
+        world.cprint(f"alpha: {alpha}")
         print(results)
         end_time = time()
         print(f"time consumption: {end_time-start_time}s")
+
+
+def Test_exp2(dataset, epoch, w=None, multicore=0):
+    u_batch_size = world.config['test_u_batch_size']
+    dataset: utils.BasicDataset
+    testDict: dict = dataset.testDict
+    adj_mat = dataset.UserItemNet.tolil()
+    if world.simple_model != 'exp2':
+        raise NotImplementedError
+    
+    lm = model.EXP2(adj_mat)
+    lm.train()
+
+    # eval mode with no dropout
+    max_K = max(world.topks)
+    # Current Problem: Only use Multiprocessing at concating all results, not procedure part
+    # So need to change this part
+    if multicore == 1:
+        pool = multiprocessing.Pool(CORES)
+    #     c_proc = multiprocessing.current_process()
+    # print(f"Core: {CORES} current process: {c_proc.name} and PID:{c_proc.pid}")
+
+    if world.config['expdevice'][:4] != 'cpu':
+        adj_mat = convert_sp_mat_to_sp_tensor(adj_mat).to_dense()
+
+    start_time = time()
+    results = {'precision': np.zeros(len(world.topks)),
+            'recall': np.zeros(len(world.topks)),
+            'ndcg': np.zeros(len(world.topks)),
+            'diversity': 0}
+    users = list(testDict.keys())
+    try:
+        assert u_batch_size <= len(users) / 10
+    except AssertionError:
+        print(f"test_u_batch_size is too big for this dataset, try a small one {len(users) // 10}")
+    users_list = []
+    rating_list = []
+    groundTrue_list = []
+    # auc_record = []
+    # ratings = []
+    total_batch = len(users) // u_batch_size + 1
+
+    for batch_users in utils.minibatch(users, batch_size=u_batch_size):
+        allPos = dataset.getUserPosItems(batch_users)
+        groundTrue = [testDict[u] for u in batch_users]
+        if world.config['expdevice'][:4] != 'cpu':
+            batch_ratings = adj_mat[batch_users, :].to(world.config['expdevice'])
+            rating = lm.getUsersRating(batch_ratings=batch_ratings, batch_users=batch_users)
+        else:
+            rating = lm.getUsersRating(batch_users=batch_users)
+            rating = torch.from_numpy(rating)
+        # rating = rating.to(world.device)
+
+        #rating = rating.cpu()
+        exclude_index = []
+        exclude_items = []
+        for range_i, items in enumerate(allPos):
+            exclude_index.extend([range_i] * len(items))
+            exclude_items.extend(items)
+        rating[exclude_index, exclude_items] = -(1<<10)
+        _, rating_K = torch.topk(rating, k=max_K)
+        rating = rating.cpu().numpy()
+        # aucs = [ 
+        #         utils.AUC(rating[i],
+        #                   dataset, 
+        #                   test_data) for i, test_data in enumerate(groundTrue)
+        #     ]
+        # auc_record.extend(aucs)
+        del rating
+        users_list.append(batch_users)
+        rating_list.append(rating_K.cpu())
+        groundTrue_list.append(groundTrue)
+    assert total_batch == len(users_list)
+    X = zip(rating_list, groundTrue_list)
+    if multicore == 1:
+        pre_results = pool.map(test_one_batch, X)
+    else:
+        pre_results = []
+        for x in X:
+            pre_results.append(test_one_batch(x))
+    scale = float(u_batch_size/len(users))
+    for result in pre_results:
+        results['recall'] += result['recall']
+        results['precision'] += result['precision']
+        results['ndcg'] += result['ndcg']
+    results['recall'] /= float(len(users))
+    results['precision'] /= float(len(users))
+    results['ndcg'] /= float(len(users))
+    results['diversity'] = utils.get_diversity(dataset.m_items, rating_list)
+    # results['auc'] = np.mean(auc_record)
+    if world.tensorboard:
+        w.add_scalars(f'Test/Recall@{world.topks}',
+                    {str(world.topks[i]): results['recall'][i] for i in range(len(world.topks))}, epoch)
+        w.add_scalars(f'Test/Precision@{world.topks}',
+                    {str(world.topks[i]): results['precision'][i] for i in range(len(world.topks))}, epoch)
+        w.add_scalars(f'Test/NDCG@{world.topks}',
+                    {str(world.topks[i]): results['ndcg'][i] for i in range(len(world.topks))}, epoch)
+    if multicore == 1:
+        pool.close()
+        pool.join()
+    print(results)
+    end_time = time()
+    print(f"time consumption: {end_time-start_time}s")
 
 # from BSPM: https://github.com/jeongwhanchoi/BSPM/Procedure.py
 def convert_sp_mat_to_sp_tensor(X) -> torch.sparse.FloatTensor: 
