@@ -433,7 +433,7 @@ class EXP1(EXPS):
             batch_test = np.array(adj_mat[batch_users,:].todense())
             U_2 = batch_test @ self.norm_adj.T @ self.norm_adj
             U_1 = batch_test @ self.d_mat_i @ self.vt.T @ self.vt @ self.d_mat_i_inv
-            ret = U_2 + alpha * U_1
+            return alpha * U_1 + U_2
             return ret
         else:
             batch_test = batch_ratings.to_sparse()
@@ -533,7 +533,7 @@ class EXP3(EXPS):
             batch_test = np.array(adj_mat[batch_users,:].todense())
             U_2 = batch_test @ self.norm_adj.T @ self.norm_adj
             U_1 = batch_test @ self.d_mat_i @ self.vt.T @ np.diag(self.s_filter) @ self.vt @ self.d_mat_i_inv
-            return U_2 + alpha * U_1
+            return alpha * U_1 + U_2
         else:
             batch_test = batch_ratings.to_sparse()
             if world.dataset != 'amazon-book':
@@ -542,4 +542,4 @@ class EXP3(EXPS):
                 U_2 = batch_test @ self.norm_adj_cuda_sparse.T @ self.norm_adj_cuda_sparse
                 # U_2 = batch_test @ self.linear_Filter_cuda_sparse
             U_1 = batch_test @ self.left_mat_cuda @ torch.diag(self.s_filter_cuda) @ self.right_mat_cuda
-            return U_2 + alpha * U_1
+            return alpha * U_1 + U_2
