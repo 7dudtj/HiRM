@@ -479,6 +479,8 @@ def returnFilter():
         return GFCFNeighborhoodBasedFilter()
     elif world.config['filter'][0] == 'inverse':
         return GFCFNeighborhoodBasedFilter()
+    elif world.config['filter'][0] == 'sigmoid-low-pass':
+        return GFCFNeighborhoodBasedFilter()
     else:
         raise NotImplementedError
 
