@@ -67,6 +67,9 @@ for dataset in "${dataset_list[@]}"; do
 
             echo python main.py --dataset=$dataset --topks="[20]" --simple_model="exp2" --expdevice=${DEVICE} --svdvalue=$svdvalue --svdtype=$svdmodule --filter="gfcf-Neighborhood-based" > "$CreateDIR/${dataset}_${svdmodule}_${svdvalue}_gfcf-Neighborhood-based.log"
             python main.py --dataset=$dataset --topks="[20]" --simple_model="exp2" --expdevice=${DEVICE} --svdvalue=$svdvalue --svdtype=$svdmodule --filter="gfcf-Neighborhood-based" >> "$CreateDIR/${dataset}_${svdmodule}_${svdvalue}_gfcf-Neighborhood-based.log"
+
+            echo python main.py --dataset=$dataset --topks="[20]" --simple_model="exp2" --expdevice=${DEVICE} --svdvalue=$svdvalue --svdtype=$svdmodule --filter="sigmoid-low-pass" > "$CreateDIR/${dataset}_${svdmodule}_${svdvalue}_sigmoid-low-pass.log"
+            python main.py --dataset=$dataset --topks="[20]" --simple_model="exp2" --expdevice=${DEVICE} --svdvalue=$svdvalue --svdtype=$svdmodule --filter="sigmoid-low-pass" >> "$CreateDIR/${dataset}_${svdmodule}_${svdvalue}_sigmoid-low-pass.log"
             # let curiter=$curiter+1
         done
     done
