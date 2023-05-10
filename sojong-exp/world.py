@@ -56,8 +56,10 @@ config['alpha_start'] = args.alpha_start
 config['alpha_end'] = args.alpha_end
 config['alpha_step'] = args.alpha_step
 # for exp2
-config['filter'] = args.filter
-config['filter_option'] = args.filter_option
+# config['filter'] = args.filter
+# config['filter_option'] = args.filter_option
+config['filter'] = eval(args.filter)
+filter_list = ['linear', 'ideal-low-pass', 'gaussian', 'heat-kernel', 'butterworth', 'gfcf-linear-autoencoder', 'gfcf-Neighborhood-based', 'inverse']
 
 GPU = torch.cuda.is_available()
 device = torch.device('cuda' if GPU else "cpu")

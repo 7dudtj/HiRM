@@ -442,26 +442,30 @@ def Test_exp2(dataset, epoch, w=None, multicore=0):
             w.add_scalars(tensorboard_folder_name(world.simple_model, world.dataset, "Recall", world.topks[i]), 
                     {   str(world.config['svdtype']) + "_" + 
                         str(world.config['svdvalue']) + "_" + 
-                        str(world.config['filter']) + "_" + 
-                        str(world.config['filter_option']) : 
+                        # str(world.config['filter']) + "_" + 
+                        # str(world.config['filter_option']) :
+                        str(world.config['filter']) : 
                         results['recall'][i]}, world.dataset_step[world.dataset])
             w.add_scalars(tensorboard_folder_name(world.simple_model, world.dataset, "Precision", world.topks[i]), 
                     {   str(world.config['svdtype']) + "_" + 
                         str(world.config['svdvalue']) + "_" + 
-                        str(world.config['filter']) + "_" + 
-                        str(world.config['filter_option']) : 
+                        # str(world.config['filter']) + "_" + 
+                        # str(world.config['filter_option']) :
+                        str(world.config['filter']) :  
                         results['precision'][i]}, world.dataset_step[world.dataset])
             w.add_scalars(tensorboard_folder_name(world.simple_model, world.dataset, "NDCG", world.topks[i]), 
                     {   str(world.config['svdtype']) + "_" + 
                         str(world.config['svdvalue']) + "_" + 
-                        str(world.config['filter']) + "_" + 
-                        str(world.config['filter_option']) : 
+                        # str(world.config['filter']) + "_" + 
+                        # str(world.config['filter_option']) : 
+                        str(world.config['filter']) : 
                         results['ndcg'][i]}, world.dataset_step[world.dataset])
             w.add_scalars(tensorboard_folder_name(world.simple_model, world.dataset, "Diversity", world.topks[i]), 
                     {   str(world.config['svdtype']) + "_" + 
                         str(world.config['svdvalue']) + "_" + 
-                        str(world.config['filter']) + "_" + 
-                        str(world.config['filter_option']) : 
+                        # str(world.config['filter']) + "_" + 
+                        # str(world.config['filter_option']) :
+                        str(world.config['filter']) :  
                         results['diversity'][i]}, world.dataset_step[world.dataset])
     if multicore == 1:
         pool.close()
@@ -576,28 +580,28 @@ def Test_exp3(dataset, epoch, w=None, multicore=0):
                         {   str(world.config['svdtype']) + "_" + 
                             str(world.config['svdvalue']) + "_" + 
                             str(world.config['filter']) + "_" + 
-                            str(world.config['filter_option']) + "_" +
+                            # str(world.config['filter_option']) + "_" +
                             str(alpha) : 
                             results['recall'][i]}, world.dataset_step[world.dataset])
                 w.add_scalars(tensorboard_folder_name(world.simple_model, world.dataset, "Precision", world.topks[i]), 
                         {   str(world.config['svdtype']) + "_" + 
                             str(world.config['svdvalue']) + "_" + 
                             str(world.config['filter']) + "_" + 
-                            str(world.config['filter_option']) + "_" +
+                            # str(world.config['filter_option']) + "_" +
                             str(alpha) : 
                             results['precision'][i]}, world.dataset_step[world.dataset])
                 w.add_scalars(tensorboard_folder_name(world.simple_model, world.dataset, "NDCG", world.topks[i]), 
                         {   str(world.config['svdtype']) + "_" + 
                             str(world.config['svdvalue']) + "_" + 
                             str(world.config['filter']) + "_" + 
-                            str(world.config['filter_option']) + "_" +
+                            # str(world.config['filter_option']) + "_" +
                             str(alpha) : 
                             results['ndcg'][i]}, world.dataset_step[world.dataset])
                 w.add_scalars(tensorboard_folder_name(world.simple_model, world.dataset, "Diversity", world.topks[i]), 
                         {   str(world.config['svdtype']) + "_" + 
                             str(world.config['svdvalue']) + "_" + 
                             str(world.config['filter']) + "_" + 
-                            str(world.config['filter_option']) + "_" +
+                            # str(world.config['filter_option']) + "_" +
                             str(alpha) : 
                             results['diversity'][i]}, world.dataset_step[world.dataset])
         if multicore == 1:

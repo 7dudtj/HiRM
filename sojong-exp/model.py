@@ -324,7 +324,7 @@ class EXPS(object):
         world.cprint(f"svd dimension: {world.config['svdvalue']}")
         world.cprint(f"exp2 device: {world.config['expdevice']}")
         world.cprint(f"filter: {world.config['filter']}")
-        world.cprint(f"filter_option: {world.config['filter_option']}")
+        # world.cprint(f"filter_option: {world.config['filter_option']}")
 
         adj_mat = self.adj_mat # (52643, 91599)
         print("training start")
@@ -387,7 +387,7 @@ class EXPS(object):
 
         if world.config['expdevice'][:4] == 'cuda':
             # # let's check if we don't use large linear filter, just multiply with diagonal matrices!
-            if world.config['filter'] == 'linear' or type(self) is not EXP2:
+            if world.config['filter'][0] == 'linear' or type(self) is not EXP2:
                 if world.dataset == 'amazon-book':
                     print('Amazon dataset is not Suitable for Commercial GPU - need 48GB of VRAM')
                     print('Use Sparse Matrix Multiplication of CUDA')
@@ -447,23 +447,37 @@ class EXP1(EXPS):
             return ret
         
 def returnFilter():
-    if world.config['filter'] == 'linear':
-        return LinearFilter(world.config['filter_option'])
-    elif world.config['filter'] == 'ideal-low-pass':
-        return IdealLowPassFilter(world.config['filter_option'])
-    elif world.config['filter'] == 'gaussian':
-        return GaussianFilter(float(world.config['filter_option']))
-    elif world.config['filter'] == 'heat-kernel':
-        return HeatKernelFilter(float(world.config['filter_option']))
-    elif world.config['filter'] == 'butterworth':
-        return ButterWorthFilter(int(world.config['filter_option']))
+    if world.config['filter'][0] not in world.filter_list:
+        raise NotImplementedError
+    if world.config['filter'][0] == 'linear':
+        return LinearFilter()
+    elif world.config['filter'][0] == 'ideal-low-pass':
+        return IdealLowPassFilter()
+    elif world.config['filter'][0] == 'gaussian':
+        if len(world.config['filter']) > 2:
+            print("Should need at least two argument: 'gaussian', mu(float)")
+            raise AssertionError
+        return GaussianFilter(*world.config['filter'][1:])
+    elif world.config['filter'][0] == 'heat-kernel':
+        if len(world.config['filter']) > 2:
+            print("Should need two argument: 'heat-kernel', alpha(float)")
+            raise AssertionError
+        return HeatKernelFilter(*world.config['filter'][1:])
+    elif world.config['filter'][0] == 'butterworth':
+        if len(world.config['filter']) > 2:
+            print("Should need two argument: 'butterworth', 1|2|3")
+            raise AssertionError
+        return ButterWorthFilter(*world.config['filter'][1:])
     # from gf-cf
-    elif world.config['filter'] == 'gfcf-linear-autoencoder':
-        return GFCFLinearAutoencoderFilter(float(world.config['filter_option']))
-    elif world.config['filter'] == 'gfcf-Neighborhood-based':
-        return GFCFNeighborhoodBasedFilter(world.config['filter_option'])
-    elif world.config['filter'] == 'inverse':
-        return GFCFNeighborhoodBasedFilter(world.config['filter_option'])
+    elif world.config['filter'][0] == 'gfcf-linear-autoencoder':
+        if len(world.config['filter']) > 2:
+            print("Should need two argument: 'gfcf-linear-autoencoder', mu(float)")
+            raise AssertionError
+        return GFCFLinearAutoencoderFilter(*world.config['filter'][1:])
+    elif world.config['filter'][0] == 'gfcf-Neighborhood-based':
+        return GFCFNeighborhoodBasedFilter()
+    elif world.config['filter'][0] == 'inverse':
+        return GFCFNeighborhoodBasedFilter()
     else:
         raise NotImplementedError
 
@@ -490,7 +504,7 @@ class EXP2(EXPS):
         if world.config['expdevice'] == 'cpu':
             adj_mat = self.adj_mat #tolil
             batch_test = np.array(adj_mat[batch_users,:].todense())
-            if world.config['filter'] == 'linear':
+            if world.config['filter'][0] == 'linear':
                 ret = batch_test @ self.norm_adj.T @ self.norm_adj
             else:
                 ret = batch_test @ self.d_mat_i @ self.vt.T @ np.diag(self.s_filter) @ self.vt @ self.d_mat_i_inv
@@ -498,7 +512,7 @@ class EXP2(EXPS):
         else:
             batch_test = batch_ratings.to_sparse()
             # if linear filter
-            if world.config['filter'] == 'linear':
+            if world.config['filter'][0] == 'linear':
                 if world.dataset != 'amazon-book':
                     ret = batch_test @ self.linear_Filter_cuda
                 else:
