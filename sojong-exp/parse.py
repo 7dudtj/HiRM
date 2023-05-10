@@ -59,6 +59,6 @@ def parse_args():
     # for exp2
     # parser.add_argument('--filter', type=str, default='ideal-low-pass', help='linear, ideal-low-pass, gaussian, heat-kernel, butterworth, gfcf-linear-autoencoder, gfcf-Neighborhood-based')
     # parser.add_argument('--filter_option', type=str, default=-1, help='gaussian(alpha), heat-kernel(alpha), butterworth filter(1,2,3), gfcf-linear-autoencoder(mu)')
-    parser.add_argument('--filter', nargs='?', help='[filter_name, option] - [linear], [ideal-low-pass], [gaussian, mu], [heat-kernel, alpha], [butterworth, 1|2|3], [gfcf-linear-autoencoder, mu], [gfcf-Neighborhood-based, ]')
+    parser.add_argument('--filter', nargs='?', default='[]', help='[filter_name, option] - [linear], [ideal-low-pass], [gaussian, mu], [heat-kernel, alpha], [butterworth, 1|2|3], [gfcf-linear-autoencoder, mu], [gfcf-Neighborhood-based, ]')
 
     return parser.parse_args()
