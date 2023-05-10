@@ -304,7 +304,6 @@ class GF_CF(object):
             ret = U_2 + 0.3 * U_1
         return ret
 
-
 class EXPS(object):
     def __init__(self, adj_mat) -> None:
         self.adj_mat = adj_mat
@@ -480,7 +479,7 @@ def returnFilter():
     elif world.config['filter'][0] == 'inverse':
         return GFCFNeighborhoodBasedFilter()
     elif world.config['filter'][0] == 'sigmoid-low-pass':
-        return GFCFNeighborhoodBasedFilter()
+        return SigmoidLowPassFilter()
     else:
         raise NotImplementedError
 
