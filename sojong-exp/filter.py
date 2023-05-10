@@ -58,3 +58,8 @@ class InverseFilter(Filter):
         super(InverseFilter, self).__init__()
     def __call__(self, s: np.array) -> np.array:
         return 1/s
+class SigmoidLowPassFilter(Filter):
+    def __init__(self) -> None:
+        super(SigmoidLowPassFilter, self).__init__()
+    def __call__(self, s: np.array) -> np.array:
+        return np.exp(-s)/(1+np.exp(-s))
