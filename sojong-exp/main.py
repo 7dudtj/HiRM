@@ -28,7 +28,7 @@ if __name__ == '__main__':
 
     weight_file = utils.getFileName()
     print(f"load and save to {weight_file}")
-    if world.LOAD:
+    if world.LOAD and world.simple_model[:3] != "exp":
         try:
             Recmodel.load_state_dict(torch.load(weight_file,map_location=torch.device('cpu')))
             world.cprint(f"loaded model weights from {weight_file}")
@@ -37,10 +37,14 @@ if __name__ == '__main__':
     Neg_k = 1
 
     # init tensorboard
-    if world.tensorboard:
+    if world.tensorboard and world.simple_model[:3] != "exp":
         w : SummaryWriter = SummaryWriter(
                                         join(world.BOARD_PATH, time.strftime("%m-%d-%Hh%Mm%Ss-") + "-" + world.comment)
                                         )
+    elif world.tensorboard and world.simple_model[:3] == 'exp':
+        w : SummaryWriter = SummaryWriter(
+                                        join(world.BOARD_PATH, world.simple_model + "-" + world.dataset)
+        )
     else:
         w = None
         world.cprint("not enable tensorflowboard")
@@ -58,6 +62,14 @@ if __name__ == '__main__':
             cprint("[TEST]")
             start_time = time.time()
             Procedure.Test_exp2(dataset, epoch, w, world.config['multicore'])
+            end_time = time.time()
+            print(f"total time consumption: {end_time-start_time}s")
+        elif world.simple_model == 'exp3':
+            epoch = 0
+            cprint("[TEST]")
+            start_time = time.time()
+            # create tensorboard inside of procedure funtion
+            Procedure.Test_exp3(dataset, epoch, w, world.config['multicore'])
             end_time = time.time()
             print(f"total time consumption: {end_time-start_time}s")
         elif(world.simple_model != 'none'):
