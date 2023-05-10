@@ -387,7 +387,7 @@ class EXPS(object):
 
         if world.config['expdevice'][:4] == 'cuda':
             # # let's check if we don't use large linear filter, just multiply with diagonal matrices!
-            if world.config['filter'][0] == 'linear' or type(self) is not EXP2:
+            if type(self) is not EXP2 or world.config['filter'][0] == 'linear':
                 if world.dataset == 'amazon-book':
                     print('Amazon dataset is not Suitable for Commercial GPU - need 48GB of VRAM')
                     print('Use Sparse Matrix Multiplication of CUDA')
