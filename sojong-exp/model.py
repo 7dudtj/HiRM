@@ -355,6 +355,11 @@ class GFCFNeighborhoodBasedFilter(Filter):
         super(GFCFNeighborhoodBasedFilter, self).__init__(option)
     def __call__(self, s: np.array) -> np.array:
         return (1 - s)
+class sigmoidLowPassFilter(Filter):
+    def __init__(self, option) -> None:
+        super(sigmoidLowPassFilter, self).__init__(option)
+    def __call__(self, s: np.array) -> np.array:
+        return np.exp(-s)/(1+np.exp(-s))
 
 class EXPS(object):
     def __init__(self, adj_mat) -> None:
