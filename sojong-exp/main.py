@@ -72,6 +72,14 @@ if __name__ == '__main__':
             Procedure.Test_exp3(dataset, epoch, w, world.config['multicore'])
             end_time = time.time()
             print(f"total time consumption: {end_time-start_time}s")
+        elif world.simple_model == 'exp4':
+            epoch = 0
+            cprint("[TEST]")
+            start_time = time.time()
+            # create tensorboard inside of procedure funtion
+            Procedure.Test_exp4(dataset, epoch, w, world.config['multicore'])
+            end_time = time.time()
+            print(f"total time consumption: {end_time-start_time}s")
         elif(world.simple_model != 'none'):
             epoch = 0
             cprint("[TEST]")
