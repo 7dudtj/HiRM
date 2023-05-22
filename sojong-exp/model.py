@@ -708,7 +708,7 @@ class EXP4(EXPS):
             pass
         if world.dataset == 'gowalla':
             # 1024 1.3 ideal-low-pass 
-            world.config['filter'][0] = ['ideal-low-pass']
+            world.config['filter'][0] = 'ideal-low-pass'
             world.config['svdvalue'] = 1024
             # world.config['svdvalue'] = 256
         elif world.dataset == 'yelp2018':
@@ -788,7 +788,7 @@ class EXP4(EXPS):
         elif world.config['svdtype'] == 'torch':
             self.norm_adj_sparse_tensor = self.convert_sp_mat_to_sp_tensor(self.norm_adj)
             self.ut, self.s, self.vt = torch.svd_lowrank(self.norm_adj_sparse_tensor, q=world.config['svdvalue'], niter=2)
-            self.s, self.vt = self.s.numpy(), self.vt.numpy().T
+            self.ut, self.s, self.vt = self.ut.numpy(), self.s.numpy(), self.vt.numpy().T
         elif world.config['svdtype'] == 'torch_cuda':
             self.norm_adj_sparse_tensor = self.convert_sp_mat_to_sp_tensor(self.norm_adj)
             self.norm_adj_cuda_sparse = self.norm_adj_sparse_tensor.to(world.config['expdevice'])
@@ -802,7 +802,7 @@ class EXP4(EXPS):
         if world.config['expdevice'] == 'cpu':
             # filter the array
             self.s_filter = self.filter(self.s)
-            self.norm_adj_minus_usv_sparse = self.norm_adj - self.ut @ np.diag(self.s) @ self.vt
+            self.norm_adj_minus_usv_sparse = -self.ut @ np.diag(self.s) @ self.vt + self.norm_adj
             del self.ut
         else:
             # filter the array
@@ -880,6 +880,9 @@ class EXP4(EXPS):
             elif world.dataset == 'yelp2018':
                 U_1 = batch_test @ self.d_mat_i @ self.vt.T @ np.diag(self.s_filter) @ self.vt @ self.d_mat_i_inv
                 return U_3 + 0.35*U_1 + alpha*U_2
+            elif world.dataset == 'lastfm':
+                U_1 = batch_test @ self.d_mat_i @ self.vt.T @ np.diag(self.s_filter) @ self.vt @ self.d_mat_i_inv
+                return U_3 + 0.3*U_1 + alpha*U_2
             else:
                 raise NotImplementedError
         else:
@@ -901,6 +904,11 @@ class EXP4(EXPS):
                 U_2 = batch_test @ self.linear_Highpass_Filter_cuda
                 U_3 = batch_test @ self.linear_Filter_cuda
                 return U_3 + 0.35*U_1 + alpha*U_2
+            elif world.dataset == 'lastfm':
+                U_1 = batch_test @ self.left_mat_cuda @ torch.diag(self.s_filter_cuda) @ self.right_mat_cuda
+                U_2 = batch_test @ self.linear_Highpass_Filter_cuda
+                U_3 = batch_test @ self.linear_Filter_cuda
+                return U_3 + 0.3*U_1 + alpha*U_2
             else:
                 raise NotImplementedError
 
