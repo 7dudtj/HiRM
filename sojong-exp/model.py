@@ -7,7 +7,6 @@ Xiangnan He et al. LightGCN: Simplifying and Powering Graph Convolution Network 
 
 Define models here
 """
-import pkg_resources
 from typing import Any
 import world
 import torch
@@ -30,6 +29,7 @@ from filter import *
 from sklearn.decomposition import TruncatedSVD
 import fbpca
 from sklearn.utils.extmath import randomized_svd
+import sys
 
 
 class BasicModel(nn.Module):    
@@ -322,7 +322,7 @@ class EXPS(object):
         world.cprint(f"dataset: {world.dataset}")
         world.cprint(f"svd package: {world.config['svdtype']}")
         world.cprint(f"svd dimension: {world.config['svdvalue']}")
-        world.cprint(f"exp2 device: {world.config['expdevice']}")
+        world.cprint(f"exp device: {world.config['expdevice']}")
         world.cprint(f"filter: {world.config['filter']}")
         # world.cprint(f"filter_option: {world.config['filter_option']}")
 
@@ -343,6 +343,7 @@ class EXPS(object):
         norm_adj = norm_adj.dot(d_mat) # (52643, 91599) / D_{U}^{-1/2}.R.D_{I}^{-1/2} = R Tilda (normalized rating matrix)
         self.norm_adj = norm_adj.tocsc() # (52643, 91599)
         self.norm_adj_sparse_tensor = None
+        self.d_inv = d_inv
 
     # do svd - low rank factorization
         world.cprint(f"Is not Vanilla GF-CF")
@@ -351,6 +352,7 @@ class EXPS(object):
         # need to do SVD - singular value is 
         if world.config['svdtype'] == 'sparsesvd':
             ut, self.s, self.vt = sparsesvd(self.norm_adj, world.config['svdvalue']) # (256, 91599) / sparsesvd at R Tilda -> V^{T} (Singular Vector, i * i)
+            ut = ut.T
         elif world.config['svdtype'] == 'scipy':
             ut, self.s, self.vt = sp.linalg.svds(self.norm_adj, k=world.config['svdvalue'], which='LM')
             self.s = self.s[::-1]
@@ -383,11 +385,11 @@ class EXPS(object):
             print(f"we have no package named {world.config['svdtype']}")
             raise NotImplementedError
         print("SVD End")
-        del ut
+        if world.simple_model == 'exp4':
+            self.ut = ut
 
-        if world.config['expdevice'][:4] == 'cuda':
-            # # let's check if we don't use large linear filter, just multiply with diagonal matrices!
-            if type(self) is not EXP2 or world.config['filter'][0] == 'linear':
+        if world.config['expdevice'] != 'cpu':
+            if world.simple_model != "exp2" or world.config['filter'][0] == 'linear':
                 if world.dataset == 'amazon-book':
                     print('Amazon dataset is not Suitable for Commercial GPU - need 48GB of VRAM')
                     print('Use Sparse Matrix Multiplication of CUDA')
@@ -400,13 +402,14 @@ class EXPS(object):
                     # self.norm_adj_cuda = self.convert_sp_mat_to_sp_tensor(self.norm_adj).to(world.config['expdevice'])
                     # self.linear_Filter_cuda_sparse = torch.mm(self.norm_adj_cuda.T, self.norm_adj_cuda)
                     # del self.norm_adj_cuda
+                    # but this type is much slower then before version
                 else:
                     if self.norm_adj_sparse_tensor is None:
                         self.norm_adj_cuda_sparse = self.convert_sp_mat_to_sp_tensor(self.norm_adj).to(world.config['expdevice'])
                     else:
                         self.norm_adj_cuda_sparse = self.norm_adj_sparse_tensor.to(world.config['expdevice'])
                     self.linear_Filter_cuda = torch.mm(self.norm_adj_cuda_sparse.T, self.norm_adj_cuda_sparse).to_dense()
-                    del self.norm_adj_cuda_sparse
+                    # del self.norm_adj_cuda_sparse
                     print("Created self.linear_Filter_cuda")
             # left_mat: D_I^1/2 @ V : this V is U_bar from svd
             left_mat = self.d_mat_i @ self.vt.T
@@ -434,7 +437,6 @@ class EXP1(EXPS):
             U_2 = batch_test @ self.norm_adj.T @ self.norm_adj
             U_1 = batch_test @ self.d_mat_i @ self.vt.T @ self.vt @ self.d_mat_i_inv
             return alpha * U_1 + U_2
-            return ret
         else:
             batch_test = batch_ratings.to_sparse()
             if world.dataset != 'amazon-book':
@@ -447,6 +449,7 @@ class EXP1(EXPS):
             return ret
         
 def returnFilter():
+    print(world.config['filter'])
     if world.config['filter'][0] not in world.filter_list:
         raise NotImplementedError
     if world.config['filter'][0] == 'linear':
@@ -478,6 +481,8 @@ def returnFilter():
         return GFCFNeighborhoodBasedFilter()
     elif world.config['filter'][0] == 'inverse':
         return GFCFNeighborhoodBasedFilter()
+    elif world.config['filter'][0] == 'sigmoid-low-pass':
+        return SigmoidLowPassFilter()
     else:
         raise NotImplementedError
 
@@ -557,3 +562,345 @@ class EXP3(EXPS):
                 # U_2 = batch_test @ self.linear_Filter_cuda_sparse
             U_1 = batch_test @ self.left_mat_cuda @ torch.diag(self.s_filter_cuda) @ self.right_mat_cuda
             return alpha * U_1 + U_2
+    
+# test for linear_filter - svd_matrix_multiplication
+# class EXP4(EXPS):
+#     def __init__(self, adj_mat) -> None:
+#         super(EXP4, self).__init__(adj_mat)
+#         if world.config['expdevice'] == 'cpu':
+#             world.config['svdtype'] = 'torch'
+#         else:
+#             world.config['svdtype'] = 'torch_cuda'
+#         if world.dataset == 'gowalla':
+#             # 1024 1.3 ideal-low-pass 
+#             world.config['filter'][0] = 'ideal-low-pass'
+#             world.config['svdvalue'] = 1024
+#         elif world.dataset == 'yelp2018':
+#             # 512 0.35 gfcf-Neighborhood-based
+#             world.config['filter'][0] = 'gfcf-Neighborhood-based'
+#             world.config['svdvalue'] = 512
+#         self.filter = returnFilter()
+#     def train(self):
+#         start = time.time()
+#         super(EXP4, self).train()
+#         # filter array
+#         if world.config['expdevice'] == 'cpu':
+#             # self.s_filter = self.do_filter(self.s)
+#             self.s_filter = self.filter(self.s)
+#         else:
+#             # self.s_filter_cuda = torch.FloatTensor(self.do_filter(self.s)).to(world.config['expdevice'])
+#             self.s_filter_cuda = torch.FloatTensor(self.filter(self.s)).to(world.config['expdevice'])
+#         print("Make CUDA END!")
+
+#         if world.config['expdevice'] == 'cpu':
+#             self.norm_adj_minus_usv_sparse = self.norm_adj - self.ut @ np.diag(self.s) @ self.vt
+#             del self.ut
+#         else: # cuda
+#             self.vt_cuda = torch.Tensor(self.vt).to(world.config['expdevice'])
+#             self.ut_cuda = torch.Tensor(self.ut).to(world.config['expdevice'])
+
+#             # if the dataset is amazon, then we have sparse cuda tensor. else, we need to make it
+#             if world.dataset != 'amazon-book':
+#                 self.norm_adj_minus_usv_cuda = (-self.ut_cuda @ torch.diag(self.s_filter_cuda) @ self.vt_cuda + self.norm_adj_cuda_sparse)
+#                 # self.left_mat_highpass_cuda =  self.convert_sp_mat_to_sp_tensor(self.d_mat_i).to(world.config['expdevice']) @ self.norm_adj_minus_usv_cuda.T
+#                 # self.right_mat_highpass_cuda = self.norm_adj_minus_usv_cuda @ self.convert_sp_mat_to_sp_tensor(self.d_mat_i_inv).to(world.config['expdevice'])
+                
+#                 # del self.linear_Filter_cuda
+#                 del self.vt_cuda
+#                 del self.ut_cuda
+#                 # if a=torch.Tensor(np.random.rand(4)), b=torch.Tensor(np.random.rand(4,4), torch.diag(a)@b == (a*b.T).T and b @ torch.diag(a) == b*a
+#                 # so for memory efficiency, use this trick
+#                 # self.linear_Highpass_Filter_cuda = (torch.diag(torch.Tensor(self.d_inv).to(world.config['expdevice'])) @ self.norm_adj_minus_usv_cuda.T) @ (self.norm_adj_minus_usv_cuda @ torch.diag(torch.Tensor(1/self.d_inv).to(world.config['expdevice'])))
+#                 # self.linear_Highpass_Filter_cuda = (torch.Tensor(self.d_inv).to(world.config['expdevice']) * self.norm_adj_minus_usv_cuda).T @ (self.norm_adj_minus_usv_cuda * torch.Tensor(1/self.d_inv).to(world.config['expdevice']))
+#                 self.linear_Highpass_Filter_cuda = self.norm_adj_minus_usv_cuda.T @ self.norm_adj_minus_usv_cuda * torch.Tensor(1/self.d_inv).to(world.config['expdevice'])
+#                 print(torch.Tensor(self.d_inv).to(world.config['expdevice']))
+#                 # self.linear_Highpass_Filter_cuda = self.linear_Highpass_Filter_cuda.T * torch.Tensor(1/self.d_inv).to(world.config['expdevice'])
+                
+                
+                
+#                 print("CHECKPOINT")
+#                 time.sleep(10)
+#                 exit(0)
+#                 del self.norm_adj_minus_usv_cuda
+
+                
+#             else:
+#                 del self.ut
+#                 self.vt_tensor = torch.Tensor(self.vt).to_dense()
+#                 del self.vt
+#                 del self.vt_cuda
+#                 # calculate ut @ s
+#                 tmp_cuda = self.ut_cuda @ torch.diag(self.s_filter_cuda)
+#                 # split to multiple splits
+#                 split_num = 2
+#                 # print("self.norm_adj_cuda_sparse.shape: ",self.norm_adj_cuda_sparse.shape)
+#                 vt_tensor_split = torch.split(self.vt_tensor, (self.vt_tensor.shape[1]+1)//split_num, dim=1)
+#                 _usvsplit = []
+#                 for i in range(split_num):
+#                     _usvsplit.append((tmp_cuda @ vt_tensor_split[i].to(world.config['expdevice'])).cpu())
+#                 self.norm_adj_cputorch_minus_usv = torch.cat(_usvsplit, dim=1)  
+#                 del _usvsplit              
+#                 # print("self.usv shape: ", self.norm_adj_cputorch_minus_usv.shape)
+#                 self.norm_adj_cputorch_minus_usv = -self.norm_adj_cputorch_minus_usv + self.norm_adj_cuda_sparse.cpu()
+                
+#                 self.norm_adj_minus_usv_cuda = self.norm_adj_cputorch_minus_usv.to('cuda')
+#                 del self.norm_adj_cputorch_minus_usv
+#                 print("End making linear high pass filter!")
+                
+#                 # self.norm_adj_cuda_minus_usv = (-self.ut_cuda @ torch.diag(self.s_filter_cuda) @ self.vt_cuda + self.norm_adj_cuda_sparse).to_sparse()
+#                 # pass
+            
+        
+#         end = time.time()
+#         print('training time for GF-CF', end-start)
+#         world.cprint(f"The filter is {world.config['filter']}!")
+        
+#     def getUsersRating(self, alpha, batch_users=None, batch_ratings=None):
+#         if world.config['expdevice'] == 'cpu':
+#             adj_mat = self.adj_mat #tolil
+#             batch_test = np.array(adj_mat[batch_users,:].todense())
+#             U_2 = batch_test @ self.norm_adj_minus_usv_sparse.T @ self.norm_adj_minus_usv_sparse
+#             U_3 = batch_test @ self.norm_adj.T @ self.norm_adj
+#             if world.dataset == 'amazon-book':
+#                 return alpha*U_2 + U_3
+#             elif world.dataset == 'gowalla':
+#                 U_1 = batch_test @ self.d_mat_i @ self.vt.T @ np.diag(self.s_filter) @ self.vt @ self.d_mat_i_inv    
+#                 return U_3 + 1.2*U_1 + alpha*U_2
+#             elif world.dataset == 'yelp2018':
+#                 U_1 = batch_test @ self.d_mat_i @ self.vt.T @ np.diag(self.s_filter) @ self.vt @ self.d_mat_i_inv    
+#                 return U_3 + 0.35*U_1 + alpha*U_2
+#             else:
+#                 raise NotImplementedError
+#         else:
+#             batch_test = batch_ratings.to_sparse()
+#             if world.dataset == 'amazon-book':
+#                 U_2 = (batch_test @ self.norm_adj_minus_usv_cuda.T) @ self.norm_adj_minus_usv_cuda
+#                 U_3 = batch_test @ self.norm_adj_cuda_sparse.T @ self.norm_adj_cuda_sparse
+#                 return alpha*U_2 + U_3
+#             elif world.dataset == 'gowalla':
+#                 # 1024 1.3 ideal-low-pass 
+#                 U_1 = batch_test @ self.left_mat_cuda @ torch.diag(self.s_filter_cuda) @ self.right_mat_cuda
+#                 U_2 = batch_test @ self.linear_Highpass_Filter_cuda
+#                 U_3 = batch_test @ self.linear_Filter_cuda
+#                 return U_3 + 1.3*U_1 + alpha*U_2
+#             elif world.dataset == 'yelp2018':
+#                 # 512 0.35 gfcf-Neighborhood-based
+#                 U_1 = batch_test @ self.left_mat_cuda @ torch.diag(self.s_filter_cuda) @ self.right_mat_cuda
+#                 U_2 = batch_test @ self.linear_Highpass_Filter_cuda
+#                 U_3 = batch_test @ self.linear_Filter_cuda
+#                 return U_3 + 0.35*U_1 + alpha*U_2
+#             else:
+#                 raise NotImplementedError
+                
+#             # U_1 = batch_test @ self.left_mat_cuda @ torch.diag(self.s_filter_cuda) @ self.right_mat_cuda
+#             # return U_3 + 1.2 * U_1 + alpha * U_2
+#             # return U_3 + alpha * U_2
+#             # return U_1 + alpha * U_2
+
+
+class EXP4(EXPS):
+    def __init__(self, adj_mat) -> None:
+        super(EXP4, self).__init__(adj_mat)
+        if world.config['expdevice'] == 'cpu':
+            world.config['svdtype'] = 'torch'
+        else:
+            world.config['svdtype'] = 'torch_cuda'
+            pass
+        if world.dataset == 'gowalla':
+            # 1024 1.3 ideal-low-pass 
+            world.config['filter'][0] = ['ideal-low-pass']
+            world.config['svdvalue'] = 1024
+            # world.config['svdvalue'] = 256
+        elif world.dataset == 'yelp2018':
+            # 512 0.35 inverse
+            # world.config['filter'][0] = 'gfcf-Neighborhood-based'
+            world.config['filter'][0] = 'inverse'
+            world.config['svdvalue'] = 512
+            # world.config['svdvalue'] = 256
+        elif world.dataset == 'amazon-book':
+            # amazon best: 96 alpha=1.x? - 0.07286
+            world.config['filter'][0] = 'linear'
+        self.filter = returnFilter()
+    def train(self):
+        start = time.time()
+        
+        # train start!
+        world.cprint(f"Is not Vanilla GF-CF")
+        world.cprint(f"simple-model: {world.simple_model}")
+        world.cprint(f"dataset: {world.dataset}")
+        world.cprint(f"svd package: {world.config['svdtype']}")
+        world.cprint(f"svd dimension: {world.config['svdvalue']}")
+        world.cprint(f"exp device: {world.config['expdevice']}")
+        world.cprint(f"filter: {world.config['filter']}")
+        # world.cprint(f"filter_option: {world.config['filter_option']}")
+
+        adj_mat = self.adj_mat # (52643, 91599)
+        print("training start")
+        rowsum = np.array(adj_mat.sum(axis=1)) # (52643, 1)
+        d_inv = np.power(rowsum, -0.5).flatten() # (52643,)
+        d_inv[np.isinf(d_inv)] = 0. # (52643,)
+        d_mat = sp.diags(d_inv) # (52643, 52643) / D_{U}^{-1/2}
+        norm_adj = d_mat.dot(adj_mat) # (52643, 91599) / D_{U}^{-1/2}.R
+
+        colsum = np.array(adj_mat.sum(axis=0)) # (1, 91599)
+        d_inv = np.power(colsum, -0.5).flatten() # (91599,)
+        d_inv[np.isinf(d_inv)] = 0. # (91599,)
+        self.d_mat_i_tensor = torch.Tensor(d_inv)
+        self.d_mat_i_inv_tensor = 1/self.d_mat_i_tensor
+        self.d_mat_i_tensor_cuda = self.d_mat_i_tensor.to(world.config['expdevice'])
+        self.d_mat_i_inv_tensor_cuda = self.d_mat_i_inv_tensor.to(world.config['expdevice'])
+        d_mat = sp.diags(d_inv) # (91599, 91599) / D_{I}^{-1/2}
+        self.d_mat_i = d_mat
+        self.d_mat_i_inv = sp.diags(1/d_inv) # (91599, 91599) / D_{I}^{1/2}
+        norm_adj = norm_adj.dot(d_mat) # (52643, 91599) / D_{U}^{-1/2}.R.D_{I}^{-1/2} = R Tilda (normalized rating matrix)
+        self.norm_adj = norm_adj.tocsc() # (52643, 91599)
+        self.norm_adj_sparse_tensor = None
+        self.d_inv = d_inv
+
+        # do svd - low rank factorization
+        world.cprint(f"Is not Vanilla GF-CF")
+        world.cprint(f"svd package: {world.config['svdtype']}")
+        world.cprint(f"svd value: {world.config['svdvalue']}")
+        # need to do SVD - singular value is 
+        if world.config['svdtype'] == 'sparsesvd':
+            self.ut, self.s, self.vt = sparsesvd(self.norm_adj, world.config['svdvalue']) # (256, 91599) / sparsesvd at R Tilda -> V^{T} (Singular Vector, i * i)
+            self.ut = self.ut.T
+        elif world.config['svdtype'] == 'scipy':
+            self.ut, self.s, self.vt = sp.linalg.svds(self.norm_adj, k=world.config['svdvalue'], which='LM')
+            self.s = self.s[::-1]
+            self.vt = self.vt[::-1]
+            self.ut = self.ut[::-1]
+        elif world.config['svdtype'] == 'cupy':
+            # change class scipy.sparse._csc.csc_matrix to cupyx
+            try:
+                norm_adj_cupyx_sparse_matrix = cusp.csc_matrix(self.norm_adj)
+                self.ut, self.s, self.vt = cusplg.svds(norm_adj_cupyx_sparse_matrix, k=world.config['svdvalue'], which='LM')
+                self.s = self.s.get()[::-1]
+                self.vt = self.vt.get()[::-1]
+                self.ut = self.ut.get()[::-1]
+            except ImportError:
+                print("Don't have module cupy! Change SVD module!")
+                exit(0)
+        elif world.config['svdtype'] == 'fbpca':
+            self.ut, self.s, self.vt = fbpca.pca(self.norm_adj, k=world.config['svdvalue'], raw=True)
+        elif world.config['svdtype'] == 'sklearn-rand':
+            self.ut, self.s, self.vt = randomized_svd(self.norm_adj, n_components=world.config['svdvalue'])
+        elif world.config['svdtype'] == 'torch':
+            self.norm_adj_sparse_tensor = self.convert_sp_mat_to_sp_tensor(self.norm_adj)
+            self.ut, self.s, self.vt = torch.svd_lowrank(self.norm_adj_sparse_tensor, q=world.config['svdvalue'], niter=2)
+            self.s, self.vt = self.s.numpy(), self.vt.numpy().T
+        elif world.config['svdtype'] == 'torch_cuda':
+            self.norm_adj_sparse_tensor = self.convert_sp_mat_to_sp_tensor(self.norm_adj)
+            self.norm_adj_cuda_sparse = self.norm_adj_sparse_tensor.to(world.config['expdevice'])
+            self.ut, self.s, self.vt = torch.svd_lowrank(self.norm_adj_cuda_sparse, q=world.config['svdvalue'])
+            self.ut, self.s, self.vt = self.ut.cpu().numpy(), self.s.cpu().numpy(), self.vt.T.cpu().numpy()
+        else:
+            print(f"we have no package named {world.config['svdtype']}")
+            raise NotImplementedError
+        print("SVD End")
+
+        if world.config['expdevice'] == 'cpu':
+            # filter the array
+            self.s_filter = self.filter(self.s)
+            self.norm_adj_minus_usv_sparse = self.norm_adj - self.ut @ np.diag(self.s) @ self.vt
+            del self.ut
+        else:
+            # filter the array
+            self.s_filter_cuda = torch.FloatTensor(self.filter(self.s)).to(world.config['expdevice'])
+            
+            # make normalized adjacency sparse matrix
+            if self.norm_adj_sparse_tensor is None:
+                self.norm_adj_sparse_tensor = self.convert_sp_mat_to_sp_tensor(self.norm_adj)
+                self.norm_adj_cuda_sparse = self.norm_adj_sparse_tensor.to(world.config['expdevice'])
+            else:
+                self.norm_adj_cuda_sparse = self.norm_adj_sparse_tensor.to(world.config['expdevice'])
+            print('Created self.norm_adj_cuda_sparse')
+            
+            if world.dataset == 'amazon-book':
+                self.ut_cuda = torch.Tensor(self.ut).to(world.config['expdevice'])
+                self.vt_cpu_tensor = torch.Tensor(self.vt).to_dense()
+                
+                # U @ Diag(s)
+                tmp_cuda = self.ut_cuda @ torch.diag(self.s_filter_cuda)
+                
+                split_num = 2
+                vt_tensor_split = torch.split(self.vt_cpu_tensor, (self.vt_cpu_tensor.shape[1]+1)//split_num, dim=1)
+                _usvsplit = []
+                for i in range(split_num):
+                    _usvsplit.append((tmp_cuda @ vt_tensor_split[i].to(world.config['expdevice'])).cpu())
+                self.norm_adj_cputorch_minus_usv = torch.cat(_usvsplit, dim=1)  
+                del _usvsplit
+                self.norm_adj_cputorch_minus_usv = -self.norm_adj_cputorch_minus_usv + self.norm_adj_sparse_tensor
+                self.norm_adj_minus_usv_cuda = self.norm_adj_cputorch_minus_usv.to(world.config['expdevice'])
+                
+                del self.norm_adj_cputorch_minus_usv
+                del self.vt_cpu_tensor
+                del tmp_cuda
+                
+                torch.cuda.empty_cache()
+                
+                print("End making linear high pass filter!")            
+            else:
+                # left_mat: D_I^1/2 @ V : this V is U_bar from svd
+                # self.vt_cpu_tensor = torch.Tensor(self.vt).to_dense()
+                # U @ Diag(s)
+                self.norm_adj_minus_usv_cuda = (-torch.Tensor(self.ut) @ torch.diag(torch.Tensor(self.s)) @ torch.Tensor(self.vt) + self.norm_adj_sparse_tensor).to(world.config['expdevice'])
+                # self.linear_Highpass_Filter_cuda = torch.mm(self.norm_adj_minus_usv_cuda.T, self.norm_adj_minus_usv_cuda).to_dense()
+                self.linear_Highpass_Filter_cuda = ((torch.mm(self.norm_adj_minus_usv_cuda.T, self.norm_adj_minus_usv_cuda) * self.d_mat_i_inv_tensor.to('cuda:0')).T * self.d_mat_i_tensor.to('cuda:0')).to_dense()
+                del self.norm_adj_minus_usv_cuda
+                torch.cuda.empty_cache()
+                self.linear_Filter_cuda = torch.mm(self.norm_adj_cuda_sparse.T, self.norm_adj_cuda_sparse).to_dense()
+                del self.norm_adj_cuda_sparse
+                torch.cuda.empty_cache()
+                      
+                left_mat = self.d_mat_i @ self.vt.T
+                # right_mat: V.T @ D_I^{-1/2}
+                right_mat = self.vt @ self.d_mat_i_inv
+                self.left_mat_cuda, self.right_mat_cuda = torch.FloatTensor(left_mat).to(world.config['expdevice']), torch.FloatTensor(right_mat).to(world.config['expdevice'])
+                print("Created left and right matrix")
+                del left_mat
+                del right_mat
+                torch.cuda.empty_cache()
+        
+        end = time.time()
+        print('training time for GF-CF', end-start)
+        world.cprint(f"The filter is {world.config['filter']}!")
+        
+    def getUsersRating(self, alpha, batch_users=None, batch_ratings=None):
+        if world.config['expdevice'] == 'cpu':
+            adj_mat = self.adj_mat #tolil
+            batch_test = np.array(adj_mat[batch_users,:].todense())
+            U_2 = batch_test @ self.norm_adj_minus_usv_sparse.T @ self.norm_adj_minus_usv_sparse
+            U_3 = batch_test @ self.norm_adj.T @ self.norm_adj
+            if world.dataset == 'amazon-book':
+                return alpha*U_2 + U_3
+            elif world.dataset == 'gowalla':
+                U_1 = batch_test @ self.d_mat_i @ self.vt.T @ np.diag(self.s_filter) @ self.vt @ self.d_mat_i_inv    
+                return U_3 + 1.3*U_1 + alpha*U_2
+            elif world.dataset == 'yelp2018':
+                U_1 = batch_test @ self.d_mat_i @ self.vt.T @ np.diag(self.s_filter) @ self.vt @ self.d_mat_i_inv
+                return U_3 + 0.35*U_1 + alpha*U_2
+            else:
+                raise NotImplementedError
+        else:
+            batch_test = batch_ratings.to_sparse()
+            if world.dataset == 'amazon-book':
+                U_2 = (batch_test @ self.norm_adj_minus_usv_cuda.T) @ self.norm_adj_minus_usv_cuda
+                # U_2 = (batch_test @ self.left_norm_adj_minus_usv_cuda) @ self.right_norm_adj_minus_usv_cuda
+                U_3 = batch_test @ self.norm_adj_cuda_sparse.T @ self.norm_adj_cuda_sparse
+                return alpha*U_2 + U_3
+            elif world.dataset == 'gowalla':
+                # 1024 1.3 ideal-low-pass 
+                U_1 = batch_test @ self.left_mat_cuda @ torch.diag(self.s_filter_cuda) @ self.right_mat_cuda
+                U_2 = batch_test @ self.linear_Highpass_Filter_cuda
+                U_3 = batch_test @ self.linear_Filter_cuda
+                return U_3 + 1.3*U_1 + alpha*U_2
+            elif world.dataset == 'yelp2018':
+                # 512 0.35 gfcf-Neighborhood-based
+                U_1 = batch_test @ self.left_mat_cuda @ torch.diag(self.s_filter_cuda) @ self.right_mat_cuda
+                U_2 = batch_test @ self.linear_Highpass_Filter_cuda
+                U_3 = batch_test @ self.linear_Filter_cuda
+                return U_3 + 0.35*U_1 + alpha*U_2
+            else:
+                raise NotImplementedError
+

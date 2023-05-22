@@ -211,8 +211,8 @@ def tensorboard_folder_name(exp_num, dataset, score_type, topk) -> str :
     step 2 is yelp2018
     step 3 is lastfm
     """
-    # return str(exp_num) + "-" + str(dataset) + "/" + str(score_type) + "@" + str(topk)
-    return str(exp_num) + "/" + str(score_type) + "@" + str(topk)
+    return str(exp_num) + "-" + str(dataset) + "/" + str(score_type) + "@" + str(topk)
+    # return str(exp_num) + "/" + str(score_type) + "@" + str(topk)
     
 def Test_exp1(dataset, epoch, w=None, multicore=0):
     u_batch_size = world.config['test_u_batch_size']
@@ -313,28 +313,29 @@ def Test_exp1(dataset, epoch, w=None, multicore=0):
             results['diversity'][i] = len(list(set(results['diversity'][i]))) / dataset.m_items
         results['diversity'] = np.array(results['diversity'])
         # results['auc'] = np.mean(auc_record)
+        tb_scale = 100
         if world.tensorboard:
             for i in range(len(world.topks)):
                 w.add_scalars(tensorboard_folder_name(world.simple_model, world.dataset, "Recall", world.topks[i]), 
                         {   str(world.config['svdtype']) + "_" + 
-                            str(world.config['svdvalue']) + "_" + 
-                            str(alpha) :
-                            results['recall'][i]}, world.dataset_step[world.dataset])
+                            str(world.config['svdvalue']) + "_" :  #+ 
+                            # str(alpha) :
+                            results['recall'][i]}, tb_scale * alpha) # world.dataset_step[world.dataset])
                 w.add_scalars(tensorboard_folder_name(world.simple_model, world.dataset, "Precision", world.topks[i]), 
                         {   str(world.config['svdtype']) + "_" + 
-                            str(world.config['svdvalue']) + "_" + 
-                            str(alpha) :
-                            results['precision'][i]}, world.dataset_step[world.dataset])
+                            str(world.config['svdvalue']) + "_" : # + 
+                            #str(alpha) :
+                            results['precision'][i]}, tb_scale * alpha) #world.dataset_step[world.dataset])
                 w.add_scalars(tensorboard_folder_name(world.simple_model, world.dataset, "NDCG", world.topks[i]), 
                         {   str(world.config['svdtype']) + "_" + 
-                            str(world.config['svdvalue']) + "_" + 
-                            str(alpha) :
-                            results['ndcg'][i]}, world.dataset_step[world.dataset])
+                            str(world.config['svdvalue']) + "_" : # + 
+                            # str(alpha) :
+                            results['ndcg'][i]}, tb_scale * alpha) # world.dataset_step[world.dataset])
                 w.add_scalars(tensorboard_folder_name(world.simple_model, world.dataset, "Diversity", world.topks[i]), 
                         {   str(world.config['svdtype']) + "_" + 
-                            str(world.config['svdvalue']) + "_" + 
-                            str(alpha) : 
-                            results['diversity'][i]}, world.dataset_step[world.dataset])
+                            str(world.config['svdvalue']) + "_" : #+ 
+                            # str(alpha) : 
+                            results['diversity'][i]}, tb_scale * alpha) # world.dataset_step[world.dataset])
         if multicore == 1:
             pool.close()
             pool.join()
@@ -445,28 +446,28 @@ def Test_exp2(dataset, epoch, w=None, multicore=0):
                         # str(world.config['filter']) + "_" + 
                         # str(world.config['filter_option']) :
                         str(world.config['filter']) : 
-                        results['recall'][i]}, world.dataset_step[world.dataset])
+                        results['recall'][i]}, lm.filter.filter_num)
             w.add_scalars(tensorboard_folder_name(world.simple_model, world.dataset, "Precision", world.topks[i]), 
                     {   str(world.config['svdtype']) + "_" + 
                         str(world.config['svdvalue']) + "_" + 
                         # str(world.config['filter']) + "_" + 
                         # str(world.config['filter_option']) :
                         str(world.config['filter']) :  
-                        results['precision'][i]}, world.dataset_step[world.dataset])
+                        results['precision'][i]}, lm.filter.filter_num)
             w.add_scalars(tensorboard_folder_name(world.simple_model, world.dataset, "NDCG", world.topks[i]), 
                     {   str(world.config['svdtype']) + "_" + 
                         str(world.config['svdvalue']) + "_" + 
                         # str(world.config['filter']) + "_" + 
                         # str(world.config['filter_option']) : 
                         str(world.config['filter']) : 
-                        results['ndcg'][i]}, world.dataset_step[world.dataset])
+                        results['ndcg'][i]}, lm.filter.filter_num)
             w.add_scalars(tensorboard_folder_name(world.simple_model, world.dataset, "Diversity", world.topks[i]), 
                     {   str(world.config['svdtype']) + "_" + 
                         str(world.config['svdvalue']) + "_" + 
                         # str(world.config['filter']) + "_" + 
                         # str(world.config['filter_option']) :
                         str(world.config['filter']) :  
-                        results['diversity'][i]}, world.dataset_step[world.dataset])
+                        results['diversity'][i]}, lm.filter.filter_num)
     if multicore == 1:
         pool.close()
         pool.join()
@@ -551,7 +552,6 @@ def Test_exp3(dataset, epoch, w=None, multicore=0):
             users_list.append(batch_users)
             rating_list.append(rating_K.cpu())
             groundTrue_list.append(groundTrue)
-        print(f"total batch: {total_batch}, len of users_list: {len(users_list)}")
         assert total_batch == len(users_list)
         X = zip(rating_list, groundTrue_list)
         if multicore == 1:
@@ -575,35 +575,192 @@ def Test_exp3(dataset, epoch, w=None, multicore=0):
         results['diversity'] = np.array(results['diversity'])
         # results['auc'] = np.mean(auc_record)
         if world.tensorboard:
+            tb_scale = 100
             for i in range(len(world.topks)):
                 w.add_scalars(tensorboard_folder_name(world.simple_model, world.dataset, "Recall", world.topks[i]), 
                         {   str(world.config['svdtype']) + "_" + 
                             str(world.config['svdvalue']) + "_" + 
-                            str(world.config['filter']) + "_" + 
+                            # str(world.config['filter']) + "_" + 
+                            str(world.config['filter']) + "_" :
                             # str(world.config['filter_option']) + "_" +
-                            str(alpha) : 
-                            results['recall'][i]}, world.dataset_step[world.dataset])
+                            # str(alpha) : 
+                            # results['recall'][i]}, world.dataset_step[world.dataset], alpha)
+                            results['recall'][i]}, tb_scale*alpha)
                 w.add_scalars(tensorboard_folder_name(world.simple_model, world.dataset, "Precision", world.topks[i]), 
                         {   str(world.config['svdtype']) + "_" + 
                             str(world.config['svdvalue']) + "_" + 
-                            str(world.config['filter']) + "_" + 
+                            # str(world.config['filter']) + "_" + 
+                            str(world.config['filter']) + "_" :
                             # str(world.config['filter_option']) + "_" +
-                            str(alpha) : 
-                            results['precision'][i]}, world.dataset_step[world.dataset])
+                            # str(alpha) : 
+                            # results['precision'][i]}, world.dataset_step[world.dataset], alpha)
+                            results['precision'][i]}, tb_scale*alpha)
                 w.add_scalars(tensorboard_folder_name(world.simple_model, world.dataset, "NDCG", world.topks[i]), 
                         {   str(world.config['svdtype']) + "_" + 
                             str(world.config['svdvalue']) + "_" + 
-                            str(world.config['filter']) + "_" + 
+                            # str(world.config['filter']) + "_" + 
+                            str(world.config['filter']) + "_" :
                             # str(world.config['filter_option']) + "_" +
-                            str(alpha) : 
-                            results['ndcg'][i]}, world.dataset_step[world.dataset])
+                            # str(alpha) : 
+                            # results['ndcg'][i]}, world.dataset_step[world.dataset], alpha)
+                            results['ndcg'][i]}, tb_scale*alpha)
                 w.add_scalars(tensorboard_folder_name(world.simple_model, world.dataset, "Diversity", world.topks[i]), 
                         {   str(world.config['svdtype']) + "_" + 
                             str(world.config['svdvalue']) + "_" + 
-                            str(world.config['filter']) + "_" + 
+                            # str(world.config['filter']) + "_" + 
+                            str(world.config['filter']) + "_" :
                             # str(world.config['filter_option']) + "_" +
-                            str(alpha) : 
-                            results['diversity'][i]}, world.dataset_step[world.dataset])
+                            # str(alpha) : 
+                            # results['diversity'][i]}, world.dataset_step[world.dataset], alpha)
+                            results['diversity'][i]}, tb_scale*alpha)
+        if multicore == 1:
+            pool.close()
+            pool.join()
+        world.cprint(f"alpha: {alpha}")
+        print(results)
+        end_time = time()
+        print(f"time consumption: {end_time-start_time}s")
+
+
+def Test_exp4(dataset, epoch, w=None, multicore=0):
+    u_batch_size = world.config['test_u_batch_size']
+    dataset: utils.BasicDataset
+    testDict: dict = dataset.testDict
+    adj_mat = dataset.UserItemNet.tolil()
+
+    if world.simple_model != 'exp4':
+        raise NotImplementedError
+    
+    lm = model.EXP4(adj_mat)
+    lm.train()
+
+    # eval mode with no dropout
+    max_K = max(world.topks)
+    # Current Problem: Only use Multiprocessing at concating all results, not procedure part
+    # So need to change this part
+    if multicore == 1:
+        pool = multiprocessing.Pool(CORES)
+    #     c_proc = multiprocessing.current_process()
+    # print(f"Core: {CORES} current process: {c_proc.name} and PID:{c_proc.pid}")
+    if abs(world.config['alpha_start']-world.config['alpha_end']) < 1e-8:
+        range_alpha = [world.config['alpha_start']]
+    else:            
+        range_alpha = np.arange(world.config['alpha_start'], world.config['alpha_end'] + 1e-8, world.config['alpha_step'])
+        range_alpha = [round(i, 10) for i in range_alpha]
+
+    if world.config['expdevice'][:4] != 'cpu':
+        adj_mat = convert_sp_mat_to_sp_tensor(adj_mat).to_dense()
+
+    for alpha in range_alpha:
+        start_time = time()
+        results = {'precision': np.zeros(len(world.topks)),
+                'recall': np.zeros(len(world.topks)),
+                'ndcg': np.zeros(len(world.topks)),
+                'diversity': [[] for _ in range(len(world.topks))]}
+        
+        users = list(testDict.keys())
+        try:
+            assert u_batch_size <= len(users) / 10
+        except AssertionError:
+            print(f"test_u_batch_size is too big for this dataset, try a small one {len(users) // 10}")
+        users_list = []
+        rating_list = []
+        groundTrue_list = []
+        # auc_record = []
+        # ratings = []
+        total_batch = len(users) // u_batch_size + 1
+
+        for batch_users in utils.minibatch(users, batch_size=u_batch_size):
+            allPos = dataset.getUserPosItems(batch_users)
+            groundTrue = [testDict[u] for u in batch_users]
+            if world.config['expdevice'][:4] != 'cpu':
+                batch_ratings = adj_mat[batch_users, :].to(world.config['expdevice'])
+                rating = lm.getUsersRating(alpha, batch_ratings=batch_ratings, batch_users=batch_users)
+            else:
+                rating = lm.getUsersRating(alpha, batch_users=batch_users)
+                rating = torch.from_numpy(rating)
+            # rating = rating.to(world.device)
+
+            #rating = rating.cpu()
+            exclude_index = []
+            exclude_items = []
+            for range_i, items in enumerate(allPos):
+                exclude_index.extend([range_i] * len(items))
+                exclude_items.extend(items)
+            rating[exclude_index, exclude_items] = -(1<<10)
+            _, rating_K = torch.topk(rating, k=max_K)
+            rating = rating.cpu().numpy()
+            # aucs = [ 
+            #         utils.AUC(rating[i],
+            #                   dataset, 
+            #                   test_data) for i, test_data in enumerate(groundTrue)
+            #     ]
+            # auc_record.extend(aucs)
+            del rating
+            users_list.append(batch_users)
+            rating_list.append(rating_K.cpu())
+            groundTrue_list.append(groundTrue)
+        assert total_batch == len(users_list)
+        X = zip(rating_list, groundTrue_list)
+        if multicore == 1:
+            pre_results = pool.map(test_one_batch, X)
+        else:
+            pre_results = []
+            for x in X:
+                pre_results.append(test_one_batch(x))
+        scale = float(u_batch_size/len(users))
+        for result in pre_results:
+            results['recall'] += result['recall']
+            results['precision'] += result['precision']
+            results['ndcg'] += result['ndcg']
+            for i in range(len(world.topks)):
+                results['diversity'][i] += result['diversity'][i]
+        results['recall'] /= float(len(users))
+        results['precision'] /= float(len(users))
+        results['ndcg'] /= float(len(users))
+        for i in range(len(world.topks)):
+            results['diversity'][i] = len(list(set(results['diversity'][i]))) / dataset.m_items
+        results['diversity'] = np.array(results['diversity'])
+        # results['auc'] = np.mean(auc_record)
+        if world.tensorboard:
+            tb_scale = 100
+            for i in range(len(world.topks)):
+                w.add_scalars(tensorboard_folder_name(world.simple_model, world.dataset, "Recall", world.topks[i]), 
+                        {   str(world.config['svdtype']) + "_" + 
+                            str(world.config['svdvalue']) + "_" + 
+                            # str(world.config['filter']) + "_" + 
+                            str(world.config['filter']) + "_" :
+                            # str(world.config['filter_option']) + "_" +
+                            # str(alpha) : 
+                            # results['recall'][i]}, world.dataset_step[world.dataset], alpha)
+                            results['recall'][i]}, tb_scale*alpha)
+                w.add_scalars(tensorboard_folder_name(world.simple_model, world.dataset, "Precision", world.topks[i]), 
+                        {   str(world.config['svdtype']) + "_" + 
+                            str(world.config['svdvalue']) + "_" + 
+                            # str(world.config['filter']) + "_" + 
+                            str(world.config['filter']) + "_" :
+                            # str(world.config['filter_option']) + "_" +
+                            # str(alpha) : 
+                            # results['precision'][i]}, world.dataset_step[world.dataset], alpha)
+                            results['precision'][i]}, tb_scale*alpha)
+                w.add_scalars(tensorboard_folder_name(world.simple_model, world.dataset, "NDCG", world.topks[i]), 
+                        {   str(world.config['svdtype']) + "_" + 
+                            str(world.config['svdvalue']) + "_" + 
+                            # str(world.config['filter']) + "_" + 
+                            str(world.config['filter']) + "_" :
+                            # str(world.config['filter_option']) + "_" +
+                            # str(alpha) : 
+                            # results['ndcg'][i]}, world.dataset_step[world.dataset], alpha)
+                            results['ndcg'][i]}, tb_scale*alpha)
+                w.add_scalars(tensorboard_folder_name(world.simple_model, world.dataset, "Diversity", world.topks[i]), 
+                        {   str(world.config['svdtype']) + "_" + 
+                            str(world.config['svdvalue']) + "_" + 
+                            # str(world.config['filter']) + "_" + 
+                            str(world.config['filter']) + "_" :
+                            # str(world.config['filter_option']) + "_" +
+                            # str(alpha) : 
+                            # results['diversity'][i]}, world.dataset_step[world.dataset], alpha)
+                            results['diversity'][i]}, tb_scale*alpha)
         if multicore == 1:
             pool.close()
             pool.join()
