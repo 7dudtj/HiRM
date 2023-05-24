@@ -14,11 +14,13 @@ import dataloader
 from pprint import pprint
 from utils import timer
 from time import time
+from time import sleep
 from tqdm import tqdm
 import model
 import multiprocessing
 from sklearn.metrics import roc_auc_score
 import math
+from tqdm import tqdm
 
 CORES = multiprocessing.cpu_count() // 2
 
@@ -768,6 +770,119 @@ def Test_exp4(dataset, epoch, w=None, multicore=0):
         print(results)
         end_time = time()
         print(f"time consumption: {end_time-start_time}s")
+
+def Test_HiRM(dataset, w=None, multicore=0):
+    u_batch_size = world.config['test_u_batch_size']
+    dataset: utils.BasicDataset
+    testDict: dict = dataset.testDict
+    adj_mat = dataset.UserItemNet.tolil()
+
+    if world.simple_model != 'HiRM':
+        raise NotImplementedError
+    
+    lm = model.HiRM(adj_mat)
+    lm.train()
+
+    # eval mode with no dropout
+    max_K = max(world.topks)
+    # Current Problem: Only use Multiprocessing at concating all results, not procedure part
+    # So need to change this part
+    if multicore == 1:
+        pool = multiprocessing.Pool(CORES)
+    #     c_proc = multiprocessing.current_process()
+
+    if world.config['expdevice'][:4] != 'cpu':
+        adj_mat = convert_sp_mat_to_sp_tensor(adj_mat).to_dense()
+
+    start_time = time()
+    
+    
+    results = {'precision': np.zeros(len(world.topks)),
+            'recall': np.zeros(len(world.topks)),
+            'ndcg': np.zeros(len(world.topks)),
+            'diversity': [[] for _ in range(len(world.topks))]}
+    
+    users = list(testDict.keys())
+    try:
+        assert u_batch_size <= len(users) / 10
+    except AssertionError:
+        print(f"test_u_batch_size is too big for this dataset, try a small one {len(users) // 10}")
+    users_list = []
+    rating_list = []
+    groundTrue_list = []
+    # auc_record = []
+    # ratings = []
+    total_batch = len(users) // u_batch_size + 1
+
+    for batch_users in tqdm(utils.minibatch(users, batch_size=u_batch_size), total=total_batch):
+        allPos = dataset.getUserPosItems(batch_users)
+        groundTrue = [testDict[u] for u in batch_users]
+        if world.config['expdevice'][:4] != 'cpu':
+            batch_ratings = adj_mat[batch_users, :].to(world.config['expdevice'])
+            rating = lm.getUsersRating(batch_ratings=batch_ratings, batch_users=batch_users)
+        else:
+            rating = lm.getUsersRating(batch_users=batch_users)
+            rating = torch.from_numpy(rating)
+        # rating = rating.to(world.device)
+
+        #rating = rating.cpu()
+        exclude_index = []
+        exclude_items = []
+        for range_i, items in enumerate(allPos):
+            exclude_index.extend([range_i] * len(items))
+            exclude_items.extend(items)
+        rating[exclude_index, exclude_items] = -(1<<10)
+        _, rating_K = torch.topk(rating, k=max_K)
+        rating = rating.cpu().numpy()
+        # aucs = [ 
+        #         utils.AUC(rating[i],
+        #                   dataset, 
+        #                   test_data) for i, test_data in enumerate(groundTrue)
+        #     ]
+        # auc_record.extend(aucs)
+        del rating
+        users_list.append(batch_users)
+        rating_list.append(rating_K.cpu())
+        groundTrue_list.append(groundTrue)
+    assert total_batch == len(users_list)
+    X = zip(rating_list, groundTrue_list)
+    if multicore == 1:
+        pre_results = pool.map(test_one_batch, X)
+    else:
+        pre_results = []
+        for x in X:
+            pre_results.append(test_one_batch(x))
+    scale = float(u_batch_size/len(users))
+    for result in pre_results:
+        results['recall'] += result['recall']
+        results['precision'] += result['precision']
+        results['ndcg'] += result['ndcg']
+        for i in range(len(world.topks)):
+            results['diversity'][i] += result['diversity'][i]
+    results['recall'] /= float(len(users))
+    results['precision'] /= float(len(users))
+    results['ndcg'] /= float(len(users))
+    for i in range(len(world.topks)):
+        results['diversity'][i] = len(list(set(results['diversity'][i]))) / dataset.m_items
+    results['diversity'] = np.array(results['diversity'])
+    # results['auc'] = np.mean(auc_record)
+    if world.tensorboard:
+        tb_scale = 100
+        for i in range(len(world.topks)):
+            w.add_scalars(tensorboard_folder_name(world.simple_model, world.dataset, "Recall", world.topks[i]), 
+                    {   "Recall": results['recall'][i]}, 0)
+            w.add_scalars(tensorboard_folder_name(world.simple_model, world.dataset, "Precision", world.topks[i]), 
+                    {   "Precision": results['precision'][i]}, 0)
+            w.add_scalars(tensorboard_folder_name(world.simple_model, world.dataset, "NDCG", world.topks[i]), 
+                    {   "NDCG": results['ndcg'][i]}, 0)
+            w.add_scalars(tensorboard_folder_name(world.simple_model, world.dataset, "Diversity", world.topks[i]), 
+                    {   "Diversity:": results['diversity'][i]},0)
+    if multicore == 1:
+        pool.close()
+        pool.join()
+    print(results)
+    end_time = time()
+    print(f"inference time consumption: {end_time-start_time}s")
 
 # from BSPM: https://github.com/jeongwhanchoi/BSPM/Procedure.py
 def convert_sp_mat_to_sp_tensor(X) -> torch.sparse.FloatTensor: 
