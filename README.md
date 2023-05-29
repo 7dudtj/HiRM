@@ -56,7 +56,7 @@ GF-CF는 기존에 많이 사용되던 LightGCN 모델에 비하여 학습 시�
 ##
   
 <p>
-  <img src="https://github.com/7dudtj/HiRM/assets/67851701/f805eb00-195c-4e53-968b-be6de8e169e6" width="800">
+  <img src="https://github.com/7dudtj/HiRM/assets/67851701/b2499510-1fa0-40e5-b801-dc54b03196df" width="800">
 </p>  
 
 **HiRM**은 이러한 GF-CF에 비해서도 Training time을 크게 단축하였습니다.  
@@ -64,7 +64,7 @@ GF-CF는 기존에 많이 사용되던 LightGCN 모델에 비하여 학습 시�
 ##
 
 <p>
-  <img src="https://github.com/7dudtj/HiRM/assets/67851701/a95e38df-54e5-4528-8a85-4427e6fbf96b" width="800">
+  <img src="https://github.com/7dudtj/HiRM/assets/67851701/1939d1f1-2ccf-4f56-b078-68409834e49c" width="800">
 </p>
 
 또한, Inference time도 크게 단축하였습니다.  
