@@ -23,18 +23,53 @@ Neural Network를 이용한 Collaborative Filtering 기반의 추천 모델은 �
 1. SVD Package
 ```text
   다양한 SVD Package의 성능을 측정하여 학습 시간을 단축하고자 하였습니다.
+  저희가 사용한 SVD Package는 다음과 같습니다.
+  SVD Packages
+  ├── sparsesvd
+  │   └── sparsesvd.sparsesvd
+  ├── scipy
+  │   ├── scipy.sparse.linalg.svds
+  │   └── cupyx.scipy.sparse.linalg.svds (CUDA version of Scipy)
+  ├── fbpca
+  │   └── fbpca.pca
+  ├── scikit-learn
+  │   └── sklearn.utils.extmath.randomized_svd
+  └── pytorch
+      ├── torch.svd_lowrank (CPU)
+      └── torch.svd_lowrank (GPU)
 ```
 2. SVD Dimension
 ```text
   SVD Dimension을 다양하게 실험하여 최적의 Dimension을 찾고자 하였습니다.
+  SVD Dimensions
+  ├── 64
+  ├── 128
+  ├── 256
+  ├── 512
+  └── 1024
+  
 ```
 3. Diverse Filters
 ```text
   다양한 Low/High pass filter를 실험하여 최적의 필터 조합을 찾고자 하였습니다.
+  Filters
+  ├── Linear Filter
+  ├── Ideal Low Pass Filter
+  ├── Gaussian Filter
+  ├── Heat Kernel Filter
+  ├── Butterworth Filter
+  │   ├── order 1
+  │   ├── order 2
+  │   └── order 3
+  ├── Linear Autoencoder Filter (From GF-CF)
+  ├── Neighborhood Based Filter (From GF-CF)
+  ├── Inverse Filter
+  └── Sigmoid Low Pass Filter
 ```
 4. Alpha Value
 ```text
   필터 간의 비율을 조정하는 최적의 Hyperparameter를 찾고자 하였습니다.
+  -1부터 2까지, 0.05씩 증가시켜서 다양한 Metric에 대해 확인했습니다.
 ```
 
 # :medal_sports: Result
@@ -74,13 +109,22 @@ GF-CF는 기존에 많이 사용되던 LightGCN 모델에 비하여 학습 시�
 ```bash
 pip install -r requirements.txt
 ```
-2. Change base directory <!--추후 경로 수정 필요함-->
+2. Change base directory
 ```bash
-cd TBD
+cd HiRM
 ```
-3. Run <!--추후 작성 예정-->
+3. To Reproduce HiRM 
+```text
+최소 램 32GB, VRAM 24GB 환경에서 Reproduce함을 추천드립니다.
+```
 ```bash
-TBD
+python main.py --dataset="amazon-book" --simple_model="HiRM" --expdevice="cuda:0" --testbatch=256
+python main.py --dataset="gowalla" --simple_model="HiRM" --expdevice="cuda:0" --testbatch=2048
+python main.py --dataset="yelp2018" --simple_model="HiRM" --expdevice="cuda:0" --testbatch=2048
+```
+4. To Reproduce Exp1~Exp4 <!-- 추후 Document에 해당 부분 작성 필요함! Document가 생성되면 적도록 하겠음. -->
+```text
+Exp1~Exp4의 Reproduce는 Wiki를 확인바랍니다.
 ```
 
 # :thumbsup: Team Information
