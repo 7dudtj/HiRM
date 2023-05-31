@@ -124,26 +124,7 @@ python main.py --dataset="yelp2018" --simple_model="HiRM" --expdevice="cuda:0" -
 ```
 4. To Reproduce Exp1~Exp4 <!-- 추후 Document에 해당 부분 작성 필요함! Document가 생성되면 적도록 하겠음. -->
 ```text
-Exp1~Exp4의 재현을 위해서, 해당 프로젝트의 Document에서 각 argument가 어떤 의미인지 확인 후 돌리는 것을 추천드립니다.
-```
-5. To Reproduce Exp1
-```bash
-python main.py  --dataset="amazon-book" --simple_model="exp1" --expdevice="cuda:0" --svdtype="torch_cuda" \
-                --svdvalue=256 --alpha_start=0.0 --alpha_end=1.0 --alpha_step=0.05
-```
-6. To Reproduce Exp2
-```bash
-python main.py  --dataset="amazon-book" --simple_model="exp2" --expdevice="cuda:0" --svdtype="torch_cuda" \
-                --svdvalue=256 --filter="['ideal-low-pass']"
-```
-7. To Reproduce Exp3
-```bash
-python main.py  --dataset="gowalla" --simple_model="exp3" --expdevice="cuda:0" --svdtype="torch_cuda" \
-                --svdvalue=256 --alpha_start=0.0 --alpha_end=1.0 --alpha_step=0.05 --filter="['ideal-low-pass']"
-```
-8. To Reproduce Exp4
-```bash
-python main.py  --dataset="gowalla" --simple_model="exp4" --expdevice="cuda:0" --alpha_start=0.0 --alpha_end=0.1 --alpha_step=0.05
+Exp1~Exp4의 Reproduce는 Wiki를 확인바랍니다.
 ```
 
 # :thumbsup: Team Information
