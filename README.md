@@ -60,7 +60,7 @@ Neural Network를 이용한 Collaborative Filtering 기반의 추천 모델은 �
   ├── Butterworth Filter
   │   ├── order 1
   │   ├── order 2
-  │   ├── order 3
+  │   └── order 3
   ├── Linear Autoencoder Filter (From GF-CF)
   ├── Neighborhood Based Filter (From GF-CF)
   ├── Inverse Filter
