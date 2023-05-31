@@ -3,9 +3,9 @@
 그래프 신호 처리 기반 고속 추천 모델  
 
 <!--바로가기 링크 모음-->
-~[:scroll: 최종 보고서](https://github.com/7dudtj)~ 추후 업로드 예정 <!--Wiki 완성되면 링크 연결해야함-->  
+[:scroll: 최종 보고서](https://github.com/7dudtj) <!--Wiki 완성되면 링크 연결해야함-->  
 [:tv: 발표 영상](https://www.youtube.com/watch?v=2HMB2N9LvQE)  
-[:art: 전시 포스터](https://github.com/7dudtj/HiRM/wiki/Poster)  
+[:art: 전시 포스터](https://github.com/7dudtj) <!--깃허브에 업로드 후 링크 연결해야함-->  
 
 **HiRM**은 그래프 신호 처리 기반의 고속 추천 모델로서, High Pass Filter를 적용하여 추천의 다양성을 크게 향상하였습니다.  
 또한, 다양성을 높임과 동시에 모델의 성능(Recall, NDCG)도 개선하였습니다.  
